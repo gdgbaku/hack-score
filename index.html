@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hackathon Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;--surface:#fff;--surface2:#f0efe8;
+  --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.22);
+  --text:#1a1a18;--text2:#666;--text3:#999;
+  --accent:#1a1a18;--accent-fg:#fff;
+  --green:#1a6b3a;--green-bg:#f0faf4;--green-border:rgba(26,107,58,.2);
+  --red:#c0392b;--red-bg:#fdf0ef;--red-border:rgba(192,57,43,.2);
+  --blue:#1a5fa6;--blue-bg:#e8f3ff;--blue-border:rgba(26,95,166,.2);
+  --amber:#92700a;--amber-bg:#fff8e6;--amber-border:rgba(146,112,10,.2);
+  --radius:10px;--radius-lg:14px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5;visibility:hidden}
+.app{max-width:900px;margin:0 auto;padding:16px 12px 48px}
+.header{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
+.logo{width:38px;height:38px;background:var(--accent);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.header-text{flex:1;min-width:0}
+.header-text h1{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.header-text p{font-size:12px;color:var(--text2);margin-top:1px}
+.header-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.role-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px}
+.role-admin{background:#f0e8ff;color:#5b21b6}
+.role-organizer{background:var(--blue-bg);color:var(--blue)}
+.nav{display:flex;gap:5px;margin-bottom:14px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:4px;box-shadow:var(--shadow);flex-wrap:wrap}
+.nav-btn{flex:1;min-width:80px;padding:7px 8px;border-radius:7px;border:none;background:transparent;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);transition:all .15s;font-family:inherit;white-space:nowrap}
+.nav-btn:hover{background:var(--surface2);color:var(--text)}
+.nav-btn.active{background:var(--accent);color:var(--accent-fg)}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card-title{font-size:14px;font-weight:600;margin-bottom:14px;letter-spacing:-.01em}
+.section-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+input,select,textarea{width:100%;padding:8px 11px;border:0.5px solid var(--border2);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);outline:none;font-family:inherit;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+textarea{resize:vertical;min-height:80px;line-height:1.6}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:8px;border:0.5px solid var(--border2);background:transparent;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--text);transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--surface2)}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn-primary:hover{background:#333;border-color:#333}
+.btn-success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-success:hover{background:#155c30}
+.btn-danger{color:var(--red);border-color:var(--red-border)}
+.btn-danger:hover{background:var(--red-bg)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-full{width:100%;justify-content:center;padding:11px}
+.tags{display:flex;flex-wrap:wrap;gap:5px;min-height:28px}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;background:var(--surface2);color:var(--text2);border:0.5px solid var(--border)}
+.tag .del{cursor:pointer;opacity:.4;font-size:15px;line-height:1}
+.tag .del:hover{opacity:.9}
+.list-item{padding:11px 14px;border:0.5px solid var(--border);border-radius:9px;display:flex;align-items:center;justify-content:space-between;transition:all .15s;margin-bottom:7px}
+.list-item:last-child{margin-bottom:0}
+.clickable{cursor:pointer}
+.clickable:hover{border-color:var(--border2);background:var(--surface2)}
+.list-item.active{border-color:var(--accent);background:var(--surface2)}
+.list-item.scored{border-color:var(--green);background:var(--green-bg)}
+.li-badge{font-size:11px;padding:3px 9px;border-radius:12px;font-weight:500;background:var(--surface2);color:var(--text3)}
+.li-badge.done{background:#d4f0df;color:var(--green)}
+.li-badge.pending{background:var(--amber-bg);color:var(--amber)}
+.li-badge.accepted{background:#d4f0df;color:var(--green)}
+.li-badge.rejected{background:var(--red-bg);color:var(--red)}
+.li-badge.submitted{background:var(--blue-bg);color:var(--blue)}
+.score-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,.06)}
+.score-row:last-child{border-bottom:none}
+.score-label{flex:1;font-size:13px;font-weight:500;min-width:0}
+.score-num{width:62px;text-align:center;font-size:14px;font-weight:600}
+.bar-wrap{width:80px;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;flex-shrink:0}
+.bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .2s}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-top:12px}
+.stat-box{background:var(--surface2);border-radius:9px;padding:12px 14px;text-align:center}
+.stat-num{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1}
+.stat-lbl{font-size:11px;color:var(--text3);margin-top:3px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;text-align:left;border-bottom:0.5px solid var(--border)}
+td{font-size:13px;padding:9px 10px;border-bottom:0.5px solid rgba(0,0,0,.05);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.rank-1{color:#b7860b;font-weight:700}
+.rank-2{color:#888;font-weight:600}
+.rank-3{color:#8B4513;font-weight:600}
+.prog-bar{height:5px;border-radius:3px;background:var(--surface2);overflow:hidden;margin-top:5px}
+.prog-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .4s}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px}
+.alert-err{background:var(--red-bg);color:var(--red);border:0.5px solid var(--red-border)}
+.alert-success{background:var(--green-bg);color:var(--green);border:0.5px solid var(--green-border)}
+.alert-info{background:var(--blue-bg);color:var(--blue);border:0.5px solid var(--blue-border)}
+.alert-warn{background:var(--amber-bg);color:var(--amber);border:0.5px solid var(--amber-border)}
+/* Login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-box{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:32px 28px;width:100%;max-width:420px;box-shadow:var(--shadow)}
+.login-logo{text-align:center;font-size:36px;margin-bottom:8px}
+.login-title{text-align:center;font-size:18px;font-weight:600;margin-bottom:4px}
+.login-sub{text-align:center;font-size:13px;color:var(--text2);margin-bottom:24px}
+.form-group{margin-bottom:12px}
+.form-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;display:block}
+/* Admin hackathon cards */
+.hk-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px}
+.hk-icon{width:42px;height:42px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.hk-info{flex:1;min-width:0}
+.hk-title{font-size:14px;font-weight:600}
+.hk-meta{font-size:12px;color:var(--text3);margin-top:3px}
+.hk-actions{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:460px;box-shadow:0 8px 32px rgba(0,0,0,.18);max-height:90vh;overflow-y:auto}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:18px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+/* Submission card */
+.sub-card{border:0.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:var(--surface)}
+.sub-card.accepted{border-color:var(--green);background:var(--green-bg)}
+.sub-card.rejected{border-color:#ddd;background:#fafafa;opacity:.7}
+.sub-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+.sub-info{flex:1;min-width:0}
+.sub-team{font-size:14px;font-weight:600}
+.sub-project{font-size:13px;color:var(--text2);margin-top:2px}
+.sub-desc{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.sub-links{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.sub-link{font-size:12px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--blue);border:0.5px solid var(--border);text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.sub-link:hover{background:var(--blue-bg)}
+.sub-photos{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.sub-photo{width:80px;height:60px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border);cursor:pointer}
+.sub-actions{display:flex;gap:6px;flex-wrap:wrap}
+/* Project card in judge panel */
+.project-card{background:var(--blue-bg);border:0.5px solid var(--blue-border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.project-card h3{font-size:14px;font-weight:600;margin-bottom:4px}
+.project-card p{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.project-photos{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.project-photo{width:90px;height:68px;object-fit:cover;border-radius:7px;border:0.5px solid var(--border);cursor:pointer}
+/* Photo lightbox */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;cursor:pointer}
+.lightbox img{max-width:100%;max-height:90vh;border-radius:8px;object-fit:contain}
+/* Submit page */
+.submit-wrap{min-height:100vh;padding:24px 16px 48px;max-width:600px;margin:0 auto}
+.submit-header{text-align:center;margin-bottom:28px}
+.submit-header .logo-big{font-size:40px;margin-bottom:8px}
+.submit-header h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.submit-header p{font-size:14px;color:var(--text2)}
+.photo-upload-area{border:1.5px dashed var(--border2);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .15s;background:var(--surface2)}
+.photo-upload-area:hover{border-color:var(--accent);background:var(--surface)}
+.photo-preview{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.photo-preview-item{position:relative;width:90px;height:70px}
+.photo-preview-item img{width:100%;height:100%;object-fit:cover;border-radius:7px;border:0.5px solid var(--border)}
+.photo-remove{position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1}
+/* Utils */
+.flex{display:flex;align-items:center;gap:8px}
+.flex-1{flex:1;min-width:0}
+.mt-8{margin-top:8px}
+.mt-10{margin-top:10px}
+.mt-12{margin-top:12px}
+.mt-16{margin-top:16px}
+.divider{height:0.5px;background:rgba(0,0,0,.07);margin:14px 0}
+.empty{text-align:center;padding:28px 16px;color:var(--text3);font-size:13px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.saved-flash{font-size:12px;color:var(--green);display:inline-flex;align-items:center;gap:4px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#1a6b3a;animation:pulse 2s infinite;display:inline-block;margin-right:4px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.bulk-area{width:100%;padding:8px 11px;border:0.5px solid var(--border2);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);outline:none;font-family:inherit;resize:vertical;min-height:80px;line-height:1.6}
+.bulk-area:focus{border-color:var(--accent)}
+.bulk-toggle{font-size:12px;color:var(--text3);cursor:pointer;text-decoration:underline;text-underline-offset:2px;background:none;border:none;padding:0;font-family:inherit}
+.bulk-toggle:hover{color:var(--text2)}
+.hidden{display:none!important}
+.share-url-box{background:var(--surface2);border:0.5px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;word-break:break-all;color:var(--blue);cursor:pointer;margin-top:6px}
+.share-url-box:hover{background:var(--blue-bg)}
+@media(max-width:600px){.app{padding:10px 8px 32px}.card{padding:14px}.score-row{flex-wrap:wrap}.bar-wrap{display:none}.hk-actions{flex-direction:column}.nav-btn{font-size:11px;padding:6px 5px}}
+</style>
+</head>
+<body>
+
+<!-- ═══ TEAM SUBMISSION PAGE ═══ -->
+<div id="screen-submit" class="hidden">
+  <div class="submit-wrap">
+    <div class="submit-header">
+      <div class="logo-big">🚀</div>
+      <h1 id="submit-hk-title">Submit Your Project</h1>
+      <p id="submit-hk-sub">Fill in your team details below</p>
+    </div>
+    <div class="card">
+      <div id="submit-form">
+        <div class="form-group">
+          <label class="form-label">Team Name *</label>
+          <input type="text" id="f-team" placeholder="e.g. Team Alpha">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Project Name *</label>
+          <input type="text" id="f-project" placeholder="e.g. EcoTrack AI">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Project Description *</label>
+          <textarea id="f-desc" placeholder="Briefly describe your project, the problem it solves, and your approach..." style="min-height:100px"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">GitHub Repository <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+          <input type="url" id="f-github" placeholder="https://github.com/...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Live / Demo URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+          <input type="url" id="f-url" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">MVP Photos <span style="font-weight:400;color:var(--text3)">(up to 3)</span></label>
+          <div class="photo-upload-area" onclick="document.getElementById('photo-input').click()">
+            <div style="font-size:24px;margin-bottom:6px">📷</div>
+            <div style="font-size:13px;font-weight:500">Click to upload photos</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px">JPG, PNG — max 1MB each</div>
+          </div>
+          <input type="file" id="photo-input" accept="image/*" multiple class="hidden" onchange="handlePhotos(this)">
+          <div id="photo-preview" class="photo-preview"></div>
+        </div>
+        <div id="submit-err" class="hidden" style="margin-bottom:12px"></div>
+        <button class="btn btn-primary btn-full" onclick="submitProject()" id="submit-btn">Submit Project</button>
+      </div>
+      <div id="submit-success" class="hidden" style="text-align:center;padding:32px 16px">
+        <div style="font-size:48px;margin-bottom:12px">🎉</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px">Submission received!</div>
+        <div style="font-size:14px;color:var(--text2)">Your project has been submitted. The organizer will review it shortly.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="screen-login" class="login-wrap hidden">
+  <div class="login-box">
+    <div class="login-logo">🏆</div>
+    <div class="login-title">Hackathon Platform</div>
+    <div class="login-sub">Sign in to continue</div>
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <input type="text" id="login-user" placeholder="Username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" id="login-pass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div id="login-err" class="hidden" style="margin-bottom:12px"></div>
+    <button class="btn btn-primary btn-full" onclick="doLogin()" id="login-btn">Sign in</button>
+    <div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)">
+      <div class="section-label" style="margin-bottom:8px">Supabase connection</div>
+      <div style="margin-bottom:8px"><input type="text" id="sb-url" placeholder="https://xxxx.supabase.co"></div>
+      <div style="margin-bottom:8px"><input type="text" id="sb-key" placeholder="anon public key (eyJ...)"></div>
+      <button class="btn btn-sm" style="width:100%;justify-content:center" onclick="saveSupabase()">Save &amp; test</button>
+      <div id="sb-msg" class="hidden" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MAIN APP ═══ -->
+<div id="screen-app" class="hidden">
+<div class="app">
+  <div class="header">
+    <div class="logo">🏆</div>
+    <div class="header-text">
+      <h1 id="app-title">Hackathon Platform</h1>
+      <p><span class="live-dot"></span><span id="app-sub">Live</span></p>
+    </div>
+    <div class="header-right">
+      <span class="role-badge" id="role-badge"></span>
+      <button class="btn btn-sm" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="view-admin" class="hidden">
+    <div class="card" style="margin-bottom:12px">
+      <div class="flex">
+        <div class="card-title flex-1" style="margin:0">All Hackathons</div>
+        <button class="btn btn-primary btn-sm" onclick="openModal()">+ New hackathon</button>
+      </div>
+    </div>
+    <div id="admin-list"></div>
+  </div>
+
+  <!-- ORGANIZER -->
+  <div id="view-organizer" class="hidden">
+    <div class="nav">
+      <button class="nav-btn active" id="nav-setup" onclick="switchTab('setup')">⚙ Setup</button>
+      <button class="nav-btn" id="nav-submissions" onclick="switchTab('submissions')">📥 Submissions <span id="sub-count-badge"></span></button>
+      <button class="nav-btn" id="nav-judge" onclick="switchTab('judge')">✏ Judging</button>
+      <button class="nav-btn" id="nav-results" onclick="switchTab('results')">📊 Results</button>
+    </div>
+
+    <!-- Setup -->
+    <div id="tab-setup">
+      <div class="card">
+        <div class="card-title">Hackathon Name</div>
+        <input type="text" id="hk-name" placeholder="e.g. InnovateBaku 2025" oninput="debounce(pushConfig,700)()">
+      </div>
+      <div class="card">
+        <div class="card-title">Team Submission Link</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:8px">Share this link with teams so they can submit their projects:</p>
+        <div class="share-url-box" id="share-url-box" onclick="copyShareUrl()" title="Click to copy"></div>
+        <p style="font-size:11px;color:var(--text3);margin-top:6px">Click to copy · Teams submit here, you review in the Submissions tab</p>
+      </div>
+      <div class="card">
+        <div class="flex" style="margin-bottom:14px">
+          <div class="card-title flex-1" style="margin:0">Teams <span style="font-size:12px;font-weight:400;color:var(--text3)">(accepted from submissions or add manually)</span></div>
+          <button class="bulk-toggle" onclick="toggleBulk('teams')">+ Bulk</button>
+        </div>
+        <div id="teams-tags" class="tags"></div>
+        <div id="teams-bulk" class="hidden mt-8">
+          <textarea id="teams-bulk-txt" class="bulk-area" placeholder="One team per line"></textarea>
+          <div class="flex mt-8" style="justify-content:flex-end"><button class="btn btn-primary" onclick="bulkAdd('teams')">Add all</button></div>
+        </div>
+        <div id="teams-single" class="flex mt-10">
+          <input type="text" id="team-inp" placeholder="Team name" class="flex-1" onkeydown="if(event.key==='Enter')addItem('teams')">
+          <button class="btn btn-primary" onclick="addItem('teams')">+ Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="flex" style="margin-bottom:14px">
+          <div class="card-title flex-1" style="margin:0">Judges</div>
+          <button class="bulk-toggle" onclick="toggleBulk('judges')">+ Bulk</button>
+        </div>
+        <div id="judges-tags" class="tags"></div>
+        <div id="judges-bulk" class="hidden mt-8">
+          <textarea id="judges-bulk-txt" class="bulk-area" placeholder="One judge per line"></textarea>
+          <div class="flex mt-8" style="justify-content:flex-end"><button class="btn btn-primary" onclick="bulkAdd('judges')">Add all</button></div>
+        </div>
+        <div id="judges-single" class="flex mt-10">
+          <input type="text" id="judge-inp" placeholder="Judge name" class="flex-1" onkeydown="if(event.key==='Enter')addItem('judges')">
+          <button class="btn btn-primary" onclick="addItem('judges')">+ Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Scoring Categories <span style="font-size:12px;font-weight:400;color:var(--text3)">(each 1–20)</span></div>
+        <div id="cats-list"></div>
+        <div class="flex mt-12">
+          <input type="text" id="cat-inp" placeholder="New category" class="flex-1" onkeydown="if(event.key==='Enter')addItem('cats')">
+          <button class="btn btn-primary" onclick="addItem('cats')">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submissions -->
+    <div id="tab-submissions" class="hidden">
+      <div class="card" style="margin-bottom:12px">
+        <div class="flex">
+          <div class="card-title flex-1" style="margin:0">Team Submissions</div>
+          <button class="btn btn-sm" onclick="loadSubmissions().then(renderSubmissions)">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="submissions-body"></div>
+    </div>
+
+    <!-- Judge Panel -->
+    <div id="tab-judge" class="hidden">
+      <div id="judge-pick-panel">
+        <div class="card">
+          <div class="card-title">Who are you?</div>
+          <div id="judge-pick-list"></div>
+        </div>
+      </div>
+      <div id="judge-work-panel" class="hidden">
+        <div class="card">
+          <div class="flex" style="margin-bottom:12px">
+            <div class="flex-1">
+              <div class="section-label">Judging as</div>
+              <div style="font-size:16px;font-weight:600" id="active-judge-lbl"></div>
+            </div>
+            <button class="btn btn-sm" onclick="switchJudge()">Switch judge</button>
+          </div>
+          <div class="section-label">Select a team</div>
+          <div id="team-pick-list" class="mt-8"></div>
+        </div>
+        <div id="score-card" class="card hidden">
+          <div class="flex" style="margin-bottom:6px">
+            <div class="flex-1">
+              <div class="section-label">Scoring</div>
+              <div style="font-size:17px;font-weight:600" id="score-team-lbl"></div>
+            </div>
+            <span id="save-flash" class="saved-flash hidden">✓ Saved</span>
+          </div>
+          <!-- Project info card shown to judge -->
+          <div id="project-info-card" class="project-card hidden"></div>
+          <div class="divider"></div>
+          <div id="criteria-rows"></div>
+          <div class="divider"></div>
+          <div id="val-msg" class="hidden" style="background:var(--red-bg);color:var(--red);border:0.5px solid var(--red-border);border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.8;margin-bottom:10px"></div>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="stat-num" id="avg-num">–</div><div class="stat-lbl">Your avg</div></div>
+            <div class="stat-box"><div class="stat-num" id="cat-count">–</div><div class="stat-lbl">Categories</div></div>
+            <div class="stat-box"><div class="stat-num">20</div><div class="stat-lbl">Max score</div></div>
+          </div>
+          <div class="flex mt-12" style="justify-content:flex-end;gap:8px">
+            <button class="btn btn-sm btn-danger" onclick="clearScores()">Clear</button>
+            <button class="btn btn-primary" id="save-btn" onclick="submitScores()">Save scores</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="tab-results" class="hidden">
+      <div class="card">
+        <div class="flex" style="margin-bottom:14px">
+          <div class="card-title flex-1" style="margin:0">Final Leaderboard</div>
+          <button class="btn btn-sm" onclick="renderResults()">↻ Refresh</button>
+        </div>
+        <div id="leaderboard-body"></div>
+      </div>
+      <div class="card"><div class="card-title">Judge Coverage</div><div id="coverage-body"></div></div>
+      <div class="card"><div class="card-title">Category Averages</div><div id="catavg-body"></div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">New Hackathon</div>
+    <div class="form-group"><label class="form-label">Hackathon Title</label><input type="text" id="m-title" placeholder="e.g. InnovateBaku 2025"></div>
+    <div class="form-group"><label class="form-label">Organizer Username</label><input type="text" id="m-user" placeholder="e.g. baku2025"></div>
+    <div class="form-group"><label class="form-label">Organizer Password</label><input type="password" id="m-pass" placeholder="Set a password"></div>
+    <div id="modal-err" class="hidden" style="margin-top:4px"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-btn" onclick="saveHackathon()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO LIGHTBOX -->
+<div id="lightbox" class="lightbox hidden" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="MVP Photo">
+</div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────
+const ADMIN_USER="admin", ADMIN_PASS="admin123";
+const DEFAULT_CATS=["Problem-Solution Fit","Presentation & Storytelling","Business Model & Sustainability","Technical Execution & Integration","Impact & Market Potential"];
+
+// ── STATE ──────────────────────────────────────────────────
+let sb=null, currentRole=null, currentHK=null, hackathons=[], scores={}, submissions=[];
+let activeJudge=null, activeTeam=null, editingId=null;
+let uploadedPhotos=[]; // base64 strings
+
+// ── BOOT: detect ?submit=slug ──────────────────────────────
+window.addEventListener("DOMContentLoaded", async ()=>{
+  loadSBCreds();
+  const params=new URLSearchParams(location.search);
+  const slug=params.get("submit");
+  if(slug){
+    // PUBLIC SUBMISSION PAGE — hide everything else completely
+    hide("screen-login");
+    hide("screen-app");
+    await initSBFromStorage();
+    await showSubmitPage(slug);
+  } else {
+    // ADMIN / ORGANIZER LOGIN — hide submit page completely
+    hide("screen-submit");
+    hide("screen-app");
+    show("screen-login");
+  }
+  // reveal page only after routing is done — no flicker
+  document.body.style.visibility="visible";
+});
+
+async function initSBFromStorage(){
+  const url=localStorage.getItem("hj_sb_url");
+  const key=localStorage.getItem("hj_sb_key");
+  if(url&&key) sb=supabase.createClient(url,key);
+}
+
+// ── SUPABASE ───────────────────────────────────────────────
+function loadSBCreds(){
+  const url=localStorage.getItem("hj_sb_url")||"";
+  const key=localStorage.getItem("hj_sb_key")||"";
+  if(url){const el=document.getElementById("sb-url"); if(el) el.value=url;}
+  if(key){const el=document.getElementById("sb-key"); if(el) el.value=key;}
+  if(url&&key) sb=supabase.createClient(url,key);
+}
+
+async function saveSupabase(){
+  const url=document.getElementById("sb-url").value.trim();
+  const key=document.getElementById("sb-key").value.trim();
+  const msg=document.getElementById("sb-msg");
+  msg.classList.add("hidden");
+  if(!url||!key){showMsg(msg,"Both fields required.","err");return;}
+  try{
+    sb=supabase.createClient(url,key);
+    const {error}=await sb.from("hj_hackathons").select("id").limit(1);
+    if(error&&error.code==="42P01"){showMsg(msg,"Tables missing — run SQL setup first.","err");return;}
+    if(error) throw error;
+    localStorage.setItem("hj_sb_url",url);
+    localStorage.setItem("hj_sb_key",key);
+    showMsg(msg,"Connected! You can now sign in.","ok");
+  }catch(e){showMsg(msg,"Failed: "+e.message,"err");}
+}
+
+// ── SUBMIT PAGE ────────────────────────────────────────────
+async function showSubmitPage(slug){
+  if(!sb){show("screen-submit");document.getElementById("submit-hk-title").textContent="Submission Form";document.getElementById("submit-hk-sub").textContent="Configure Supabase to enable submissions.";return;}
+  try{
+    const {data,error}=await sb.from("hj_hackathons").select("id,title,username").eq("username",slug).single();
+    if(error||!data){show("screen-submit");document.getElementById("submit-hk-title").textContent="Hackathon not found";document.getElementById("submit-hk-sub").textContent=`No hackathon found for "${slug}".`;document.getElementById("submit-form").classList.add("hidden");return;}
+    window._submitHK=data;
+    document.getElementById("submit-hk-title").textContent=data.title;
+    document.getElementById("submit-hk-sub").textContent="Submit your team project below";
+    show("screen-submit");
+  }catch(e){console.error(e);}
+}
+
+function handlePhotos(input){
+  const files=Array.from(input.files);
+  const remaining=3-uploadedPhotos.length;
+  const toProcess=files.slice(0,remaining);
+  toProcess.forEach(file=>{
+    if(file.size>1024*1024){alert(`${file.name} is too large. Max 1MB per photo.`);return;}
+    const reader=new FileReader();
+    reader.onload=e=>{
+      uploadedPhotos.push(e.target.result);
+      renderPhotoPreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value="";
+}
+
+function renderPhotoPreviews(){
+  const el=document.getElementById("photo-preview");
+  el.innerHTML=uploadedPhotos.map((b64,i)=>`
+    <div class="photo-preview-item">
+      <img src="${b64}" alt="Photo ${i+1}">
+      <button class="photo-remove" onclick="removePhoto(${i})">×</button>
+    </div>`).join("");
+  if(uploadedPhotos.length>=3) document.querySelector(".photo-upload-area").style.display="none";
+  else document.querySelector(".photo-upload-area").style.display="";
+}
+
+function removePhoto(i){uploadedPhotos.splice(i,1);renderPhotoPreviews();}
+
+async function submitProject(){
+  const team=document.getElementById("f-team").value.trim();
+  const project=document.getElementById("f-project").value.trim();
+  const desc=document.getElementById("f-desc").value.trim();
+  const github=document.getElementById("f-github").value.trim();
+  const url=document.getElementById("f-url").value.trim();
+  const errEl=document.getElementById("submit-err");
+  errEl.classList.add("hidden");
+  if(!team||!project||!desc){
+    errEl.innerHTML='<div class="alert alert-err">Please fill in all required fields.</div>';
+    errEl.classList.remove("hidden"); return;
+  }
+  if(!window._submitHK){errEl.innerHTML='<div class="alert alert-err">Hackathon not configured.</div>';errEl.classList.remove("hidden");return;}
+  const btn=document.getElementById("submit-btn");
+  btn.innerHTML='<span class="spinner"></span> Submitting…'; btn.disabled=true;
+  try{
+    const {error}=await sb.from("hj_submissions").insert({
+      hackathon_id:window._submitHK.id,
+      team_name:team, project_name:project,
+      description:desc,
+      github_url:github||null,
+      shared_url:url||null,
+      photos:uploadedPhotos,
+      status:"pending"
+    });
+    if(error) throw error;
+    document.getElementById("submit-form").classList.add("hidden");
+    document.getElementById("submit-success").classList.remove("hidden");
+  }catch(e){
+    errEl.innerHTML=`<div class="alert alert-err">${e.message}</div>`;
+    errEl.classList.remove("hidden");
+    btn.innerHTML="Submit Project"; btn.disabled=false;
+  }
+}
+
+// ── LOGIN ──────────────────────────────────────────────────
+async function doLogin(){
+  const user=document.getElementById("login-user").value.trim();
+  const pass=document.getElementById("login-pass").value;
+  const errEl=document.getElementById("login-err");
+  const btn=document.getElementById("login-btn");
+  errEl.classList.add("hidden");
+  if(!sb){showMsg(errEl,"Configure Supabase connection first.","err");return;}
+  if(!user||!pass){showMsg(errEl,"Enter username and password.","err");return;}
+  btn.innerHTML='<span class="spinner"></span> Signing in…'; btn.disabled=true;
+  if(user===ADMIN_USER&&pass===ADMIN_PASS){
+    currentRole="admin"; await enterApp();
+  } else {
+    try{
+      const {data,error}=await sb.from("hj_hackathons").select("*").eq("username",user).eq("password",pass).single();
+      if(error||!data){showMsg(errEl,"Invalid username or password.","err");btn.innerHTML="Sign in";btn.disabled=false;return;}
+      currentRole="organizer"; currentHK=data; await enterApp();
+    }catch(e){showMsg(errEl,"Login error: "+e.message,"err");}
+  }
+  btn.innerHTML="Sign in"; btn.disabled=false;
+}
+
+async function enterApp(){
+  hide("screen-login"); show("screen-app");
+  if(currentRole==="admin"){
+    document.getElementById("role-badge").textContent="Admin";
+    document.getElementById("role-badge").className="role-badge role-admin";
+    document.getElementById("app-title").textContent="Admin Dashboard";
+    show("view-admin"); hide("view-organizer");
+    await loadHackathons(); renderAdminList(); setupAdminRT();
+  } else {
+    document.getElementById("role-badge").textContent="Organizer";
+    document.getElementById("role-badge").className="role-badge role-organizer";
+    document.getElementById("app-title").textContent=currentHK.title;
+    hide("view-admin"); show("view-organizer");
+    setShareUrl();
+    await loadScores(); await loadSubmissions();
+    renderSetup(); switchTab("setup"); setupOrgRT();
+  }
+}
+
+function logout(){
+  currentRole=null;currentHK=null;activeJudge=null;activeTeam=null;scores={};submissions=[];
+  hide("screen-app"); show("screen-login");
+  document.getElementById("login-user").value="";
+  document.getElementById("login-pass").value="";
+  document.getElementById("login-err").classList.add("hidden");
+  hide("view-admin"); hide("view-organizer");
+}
+
+// ── ADMIN ──────────────────────────────────────────────────
+async function loadHackathons(){const {data}=await sb.from("hj_hackathons").select("*").order("created_at",{ascending:false});hackathons=data||[];}
+
+function setupAdminRT(){
+  sb.channel("hj-admin-rt").on("postgres_changes",{event:"*",schema:"public",table:"hj_hackathons"},async()=>{await loadHackathons();renderAdminList();}).subscribe();
+}
+
+function renderAdminList(){
+  const el=document.getElementById("admin-list");
+  if(!hackathons.length){el.innerHTML='<div class="card"><div class="empty">No hackathons yet.</div></div>';return;}
+  el.innerHTML=hackathons.map(hk=>`
+    <div class="hk-card">
+      <div class="hk-icon">🏆</div>
+      <div class="hk-info">
+        <div class="hk-title">${hk.title}</div>
+        <div class="hk-meta">@${hk.username} · ${(hk.teams||[]).length} teams · ${(hk.judges||[]).length} judges</div>
+      </div>
+      <div class="hk-actions">
+        <button class="btn btn-sm" onclick="openModal('${hk.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteHK('${hk.id}','${hk.title.replace(/'/g,"\\'")}')">Delete</button>
+      </div>
+    </div>`).join("");
+}
+
+function openModal(id){
+  editingId=id||null;
+  const hk=id?hackathons.find(h=>h.id===id):null;
+  document.getElementById("modal-title").textContent=hk?"Edit Hackathon":"New Hackathon";
+  document.getElementById("m-title").value=hk?hk.title:"";
+  document.getElementById("m-user").value=hk?hk.username:"";
+  document.getElementById("m-pass").value=hk?hk.password:"";
+  document.getElementById("modal-btn").textContent=hk?"Save changes":"Create";
+  document.getElementById("modal-err").classList.add("hidden");
+  show("modal");
+}
+function closeModal(){hide("modal");}
+
+async function saveHackathon(){
+  const title=document.getElementById("m-title").value.trim();
+  const username=document.getElementById("m-user").value.trim().toLowerCase().replace(/\s+/g,"-");
+  const password=document.getElementById("m-pass").value;
+  const errEl=document.getElementById("modal-err");
+  errEl.classList.add("hidden");
+  if(!title||!username||!password){showMsg(errEl,"All fields required.","err");return;}
+  if(username===ADMIN_USER){showMsg(errEl,`Username "${ADMIN_USER}" is reserved.`,"err");return;}
+  const btn=document.getElementById("modal-btn");
+  btn.innerHTML='<span class="spinner"></span>'; btn.disabled=true;
+  try{
+    if(editingId){
+      const {error}=await sb.from("hj_hackathons").update({title,username,password}).eq("id",editingId);
+      if(error) throw error;
+    } else {
+      const {error}=await sb.from("hj_hackathons").insert({title,username,password,teams:[],judges:[],categories:[...DEFAULT_CATS]});
+      if(error) throw error;
+    }
+    closeModal(); await loadHackathons(); renderAdminList();
+  }catch(e){showMsg(errEl,e.message.includes("unique")?"Username already taken.":e.message,"err");}
+  btn.innerHTML=editingId?"Save changes":"Create"; btn.disabled=false;
+}
+
+async function deleteHK(id,title){
+  if(!confirm(`Delete "${title}"?\nAll submissions and scores will be lost.`)) return;
+  await sb.from("hj_hackathons").delete().eq("id",id);
+  await loadHackathons(); renderAdminList();
+}
+
+// ── ORGANIZER SETUP ────────────────────────────────────────
+function setShareUrl(){
+  const url=`${location.origin}${location.pathname}?submit=${currentHK.username}`;
+  const el=document.getElementById("share-url-box");
+  if(el) el.textContent=url;
+}
+
+function copyShareUrl(){
+  const url=`${location.origin}${location.pathname}?submit=${currentHK.username}`;
+  navigator.clipboard.writeText(url).then(()=>{
+    const el=document.getElementById("share-url-box");
+    const orig=el.textContent; el.textContent="✓ Copied!";
+    setTimeout(()=>{el.textContent=orig;},1800);
+  });
+}
+
+async function pushConfig(){
+  currentHK.title=document.getElementById("hk-name").value;
+  document.getElementById("app-title").textContent=currentHK.title;
+  await sb.from("hj_hackathons").update({title:currentHK.title,teams:currentHK.teams,judges:currentHK.judges,categories:currentHK.categories}).eq("id",currentHK.id);
+}
+
+async function pushArr(){
+  await sb.from("hj_hackathons").update({teams:currentHK.teams,judges:currentHK.judges,categories:currentHK.categories}).eq("id",currentHK.id);
+}
+
+function renderSetup(){
+  document.getElementById("hk-name").value=currentHK.title||"";
+  renderTags("teams-tags",currentHK.teams||[],"teams");
+  renderTags("judges-tags",currentHK.judges||[],"judges");
+  renderCats();
+  setShareUrl();
+}
+
+function renderTags(elId,arr,type){
+  const el=document.getElementById(elId);
+  if(!arr.length){el.innerHTML='<span style="font-size:12px;color:var(--text3)">None yet</span>';return;}
+  el.innerHTML=arr.map((v,i)=>`<span class="tag">${v}<span class="del" onclick="removeItem('${type}',${i})">×</span></span>`).join("");
+}
+
+function renderCats(){
+  const el=document.getElementById("cats-list");
+  const cats=currentHK.categories||[];
+  if(!cats.length){el.innerHTML='<div class="empty">No categories.</div>';return;}
+  el.innerHTML=cats.map((c,i)=>`<div class="flex" style="margin-bottom:7px">
+    <input type="text" value="${c.replace(/"/g,'&quot;')}" oninput="editCat(${i},this.value)" style="flex:1">
+    <button class="btn btn-sm btn-danger" onclick="removeItem('cats',${i})">Remove</button>
+  </div>`).join("");
+}
+
+function addItem(type){
+  const inp=document.getElementById(type==="cats"?"cat-inp":type.slice(0,-1)+"-inp");
+  const v=inp.value.trim(); if(!v) return;
+  const arr=type==="cats"?currentHK.categories:currentHK[type];
+  if(arr.includes(v)) return;
+  arr.push(v); inp.value="";
+  type==="cats"?renderCats():renderTags(type+"-tags",arr,type);
+  pushArr();
+}
+
+function removeItem(type,i){
+  const arr=type==="cats"?currentHK.categories:currentHK[type];
+  arr.splice(i,1);
+  type==="cats"?renderCats():renderTags(type+"-tags",arr,type);
+  pushArr();
+}
+
+function editCat(i,v){currentHK.categories[i]=v;debounce(pushArr,800)();}
+
+function toggleBulk(type){
+  document.getElementById(type+"-bulk").classList.toggle("hidden");
+  document.getElementById(type+"-single").classList.toggle("hidden");
+}
+
+function bulkAdd(type){
+  const raw=document.getElementById(type+"-bulk-txt").value;
+  const arr=currentHK[type];
+  const names=raw.split("\n").map(s=>s.trim()).filter(s=>s&&!arr.includes(s));
+  if(!names.length) return;
+  arr.push(...names);
+  document.getElementById(type+"-bulk-txt").value="";
+  toggleBulk(type);
+  renderTags(type+"-tags",arr,type);
+  pushArr();
+}
+
+function setupOrgRT(){
+  sb.channel("hj-org-"+currentHK.id)
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"hj_hackathons",filter:`id=eq.${currentHK.id}`},p=>{if(p.new){currentHK=p.new;renderSetup();}})
+    .on("postgres_changes",{event:"*",schema:"public",table:"hj_scores",filter:`hackathon_id=eq.${currentHK.id}`},p=>{if(p.new) scores[p.new.id]=p.new.scores;if(!document.getElementById("tab-results").classList.contains("hidden")) renderResults();if(activeJudge) renderTeamPickList();})
+    .on("postgres_changes",{event:"*",schema:"public",table:"hj_submissions",filter:`hackathon_id=eq.${currentHK.id}`},async()=>{await loadSubmissions();renderSubmissions();updateSubBadge();})
+    .subscribe();
+}
+
+// ── SUBMISSIONS ────────────────────────────────────────────
+async function loadSubmissions(){
+  if(!currentHK) return;
+  const {data}=await sb.from("hj_submissions").select("*").eq("hackathon_id",currentHK.id).order("submitted_at",{ascending:false});
+  submissions=data||[];
+}
+
+function updateSubBadge(){
+  const pending=submissions.filter(s=>s.status==="pending").length;
+  const badge=document.getElementById("sub-count-badge");
+  if(badge) badge.textContent=pending>0?`(${pending})`:"";
+}
+
+function renderSubmissions(){
+  updateSubBadge();
+  const el=document.getElementById("submissions-body");
+  if(!submissions.length){el.innerHTML='<div class="card"><div class="empty">No submissions yet. Share the submission link with teams.</div></div>';return;}
+  el.innerHTML=submissions.map(s=>{
+    const isPending=s.status==="pending";
+    const isAccepted=s.status==="accepted";
+    return `<div class="sub-card ${s.status}" id="sub-${s.id}">
+      <div class="sub-header">
+        <div class="sub-info">
+          <div class="sub-team">${s.team_name} <span class="li-badge ${s.status}" style="margin-left:6px">${s.status}</span></div>
+          <div class="sub-project" style="font-weight:600;margin-top:3px">📦 ${s.project_name}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${new Date(s.submitted_at||s.created_at).toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="sub-desc">${s.description}</div>
+      ${s.photos&&s.photos.length?`<div class="sub-photos">${s.photos.map(p=>`<img class="sub-photo" src="${p}" onclick="openLightbox('${p}')" alt="MVP">`).join("")}</div>`:""}
+      <div class="sub-links">
+        ${s.github_url?`<a class="sub-link" href="${s.github_url}" target="_blank">🐙 GitHub</a>`:""}
+        ${s.shared_url?`<a class="sub-link" href="${s.shared_url}" target="_blank">🔗 Live Demo</a>`:""}
+      </div>
+      <div class="sub-actions">
+        ${isPending?`<button class="btn btn-sm btn-success" onclick="reviewSub('${s.id}','accepted','${s.team_name.replace(/'/g,"\\'")}')">✓ Accept</button>`:""}
+        ${isPending?`<button class="btn btn-sm btn-danger" onclick="reviewSub('${s.id}','rejected','${s.team_name.replace(/'/g,"\\'")}')">✗ Reject</button>`:""}
+        ${isAccepted?`<button class="btn btn-sm btn-danger" onclick="reviewSub('${s.id}','rejected','${s.team_name.replace(/'/g,"\\'")}')">↩ Remove from teams</button>`:""}
+        ${s.status==="rejected"?`<button class="btn btn-sm btn-success" onclick="reviewSub('${s.id}','accepted','${s.team_name.replace(/'/g,"\\'")}')">↩ Re-accept</button>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function reviewSub(id,status,teamName){
+  await sb.from("hj_submissions").update({status}).eq("id",id);
+  // sync team list
+  const teams=currentHK.teams||[];
+  if(status==="accepted"&&!teams.includes(teamName)){
+    teams.push(teamName);
+  } else if(status==="rejected"){
+    const idx=teams.indexOf(teamName);
+    if(idx>-1) teams.splice(idx,1);
+  }
+  currentHK.teams=teams;
+  await pushArr();
+  await loadSubmissions();
+  renderSubmissions();
+  renderTags("teams-tags",currentHK.teams,"teams");
+}
+
+// ── TAB SWITCHING ──────────────────────────────────────────
+async function switchTab(t){
+  ["setup","submissions","judge","results"].forEach(id=>{
+    document.getElementById("tab-"+id).classList.toggle("hidden",id!==t);
+    const nb=document.getElementById("nav-"+id);
+    if(nb) nb.classList.toggle("active",id===t);
+  });
+  if(t==="submissions"){await loadSubmissions();renderSubmissions();}
+  if(t==="judge"){await reloadHK();await loadScores();renderJudgeView();}
+  if(t==="results"){await loadScores();renderResults();}
+}
+
+async function reloadHK(){
+  const {data}=await sb.from("hj_hackathons").select("*").eq("id",currentHK.id).single();
+  if(data) currentHK=data;
+}
+
+// ── SCORES ─────────────────────────────────────────────────
+async function loadScores(){
+  if(!currentHK) return;
+  const {data}=await sb.from("hj_scores").select("id,scores").eq("hackathon_id",currentHK.id);
+  if(data) data.forEach(r=>{scores[r.id]=r.scores;});
+}
+function sk(j,t){return `${j}|||${t}`;}
+function getScore(j,t){return scores[sk(j,t)]||null;}
+function hasScore(j,t){return !!scores[sk(j,t)];}
+async function upsertScore(j,t,obj){scores[sk(j,t)]=obj;await sb.from("hj_scores").upsert({id:sk(j,t),hackathon_id:currentHK.id,judge:j,team:t,scores:obj,updated_at:new Date().toISOString()});}
+async function deleteScore(j,t){delete scores[sk(j,t)];await sb.from("hj_scores").delete().eq("id",sk(j,t));}
+
+// ── JUDGE PANEL ────────────────────────────────────────────
+function renderJudgeView(){
+  const judges=currentHK.judges||[];
+  if(!judges.length){
+    document.getElementById("judge-pick-panel").innerHTML='<div class="card"><div class="empty">No judges added yet. Go to Setup first.</div></div>';
+    hide("judge-work-panel"); return;
+  }
+  if(activeJudge){
+    hide("judge-pick-panel"); show("judge-work-panel");
+    document.getElementById("active-judge-lbl").textContent=activeJudge;
+    renderTeamPickList(); if(activeTeam) renderScoreForm();
+  } else {
+    show("judge-pick-panel"); hide("judge-work-panel");
+    document.getElementById("judge-pick-list").innerHTML=judges.map(j=>{
+      const done=(currentHK.teams||[]).filter(t=>hasScore(j,t)).length;
+      const total=(currentHK.teams||[]).length;
+      return `<div class="list-item clickable" onclick="selectJudge('${j.replace(/'/g,"\\'")}')">
+        <span style="font-weight:500">${j}</span>
+        <span class="li-badge ${done===total&&total>0?'done':''}">${done}/${total} scored</span>
+      </div>`;
+    }).join("");
+  }
+}
+
+function selectJudge(j){
+  activeJudge=j; activeTeam=null;
+  hide("judge-pick-panel"); show("judge-work-panel");
+  document.getElementById("active-judge-lbl").textContent=j;
+  hide("score-card"); renderTeamPickList();
+}
+
+function switchJudge(){activeJudge=null;activeTeam=null;show("judge-pick-panel");hide("judge-work-panel");renderJudgeView();}
+
+function renderTeamPickList(){
+  const el=document.getElementById("team-pick-list");
+  const teams=currentHK.teams||[];
+  if(!teams.length){el.innerHTML='<div class="empty">No teams yet.</div>';return;}
+  el.innerHTML=teams.map(t=>{
+    const done=hasScore(activeJudge,t);
+    const s=getScore(activeJudge,t);
+    const avg=s?(Object.values(s).reduce((a,b)=>a+b,0)/Object.values(s).length).toFixed(1):null;
+    const sub=submissions.find(s=>s.team_name===t&&s.status==="accepted");
+    return `<div class="list-item clickable ${done?'scored':''} ${activeTeam===t?'active':''}" onclick="selectTeam('${t.replace(/'/g,"\\'")}')">
+      <div>
+        <div style="font-weight:500;font-size:13px">${t}</div>
+        ${sub?`<div style="font-size:11px;color:var(--text3);margin-top:1px">📦 ${sub.project_name}</div>`:""}
+      </div>
+      <div style="display:flex;align-items:center;gap:7px">
+        ${avg?`<span style="font-size:12px;font-weight:600;color:var(--text2)">${avg}/20</span>`:""}
+        <span class="li-badge ${done?'done':'pending'}">${done?'✓ Scored':'Pending'}</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function selectTeam(t){activeTeam=t;renderTeamPickList();renderScoreForm();}
+
+function getProjectForTeam(teamName){
+  return submissions.find(s=>s.team_name===teamName&&s.status==="accepted")||null;
+}
+
+function renderScoreForm(){
+  const card=document.getElementById("score-card");
+  card.classList.remove("hidden");
+  document.getElementById("score-team-lbl").textContent=activeTeam;
+  hide("save-flash"); hide("val-msg");
+  document.getElementById("cat-count").textContent=(currentHK.categories||[]).length;
+
+  // project info for judge
+  const proj=getProjectForTeam(activeTeam);
+  const projCard=document.getElementById("project-info-card");
+  if(proj){
+    projCard.classList.remove("hidden");
+    projCard.innerHTML=`
+      <h3>📦 ${proj.project_name}</h3>
+      <p>${proj.description}</p>
+      ${proj.photos&&proj.photos.length?`<div class="project-photos">${proj.photos.map(p=>`<img class="project-photo" src="${p}" onclick="openLightbox('${p}')" alt="MVP">`).join("")}</div>`:""}
+      <div class="sub-links">
+        ${proj.github_url?`<a class="sub-link" href="${proj.github_url}" target="_blank">🐙 GitHub Repo</a>`:""}
+        ${proj.shared_url?`<a class="sub-link" href="${proj.shared_url}" target="_blank">🔗 Live Demo</a>`:""}
+      </div>`;
+  } else {
+    projCard.classList.add("hidden");
+  }
+
+  const existing=getScore(activeJudge,activeTeam)||{};
+  document.getElementById("criteria-rows").innerHTML=(currentHK.categories||[]).map((cat,i)=>{
+    const val=existing[i]!==undefined?existing[i]:"";
+    return `<div class="score-row">
+      <div class="score-label">${cat}<span id="err-${i}" class="hidden" style="font-size:11px;font-weight:500;color:var(--red);margin-left:6px"></span></div>
+      <input type="number" min="1" max="20" step="1" class="score-num" id="sc-${i}" value="${val}" placeholder="–" oninput="onScoreInput(${i},this.value)">
+      <div class="bar-wrap"><div class="bar-fill" id="bar-${i}" style="width:${val!==''?((val-1)/19*100):0}%"></div></div>
+    </div>`;
+  }).join("");
+  updateAvg();
+  card.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function onScoreInput(i,v){
+  const num=parseFloat(v),inp=document.getElementById("sc-"+i),err=document.getElementById("err-"+i),bar=document.getElementById("bar-"+i);
+  if(v===""){inp.style.borderColor="";inp.style.color="";if(err){err.textContent="";err.classList.add("hidden");}if(bar)bar.style.width="0%";}
+  else if(isNaN(num)||num<1||num>20){inp.style.borderColor="#c0392b";inp.style.color="#c0392b";if(err){err.textContent=num>20?"⚠ Max is 20":"⚠ Min is 1";err.classList.remove("hidden");}if(bar)bar.style.width="0%";}
+  else{inp.style.borderColor="#1a6b3a";inp.style.color="";if(err){err.textContent="";err.classList.add("hidden");}if(bar)bar.style.width=((num-1)/19*100)+"%";}
+  updateAvg();
+}
+
+function updateAvg(){
+  const vals=(currentHK.categories||[]).map((_,i)=>{const el=document.getElementById("sc-"+i);if(!el||el.value==="")return null;const n=parseFloat(el.value);return(isNaN(n)||n<1||n>20)?null:n;}).filter(v=>v!==null);
+  document.getElementById("avg-num").textContent=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):"–";
+}
+
+async function submitScores(){
+  const cats=currentHK.categories||[],obj={},missing=[],invalid=[];
+  cats.forEach((cat,i)=>{const el=document.getElementById("sc-"+i),v=el?el.value.trim():"";if(v==="")missing.push(cat);else{const n=parseFloat(v);if(isNaN(n)||n<1||n>20)invalid.push(cat);else obj[i]=parseFloat(n.toFixed(1));}});
+  const msg=document.getElementById("val-msg");
+  if(invalid.length||missing.length){
+    let h="";if(invalid.length)h+=`<div style="margin-bottom:${missing.length?6:0}px"><strong>⚠ Invalid (1–20):</strong><br>${invalid.map(c=>`• ${c}`).join("<br>")}</div>`;if(missing.length)h+=`<div><strong>⚠ Missing:</strong><br>${missing.map(c=>`• ${c}`).join("<br>")}</div>`;
+    msg.innerHTML=h;msg.classList.remove("hidden");
+    cats.forEach((cat,i)=>{const el=document.getElementById("sc-"+i),err=document.getElementById("err-"+i);if(el&&el.value.trim()===""){el.style.borderColor="#c0392b";if(err){err.textContent="⚠ Required";err.classList.remove("hidden");}}});
+    return;
+  }
+  msg.classList.add("hidden");
+  const btn=document.getElementById("save-btn");btn.innerHTML='<span class="spinner"></span> Saving…';btn.disabled=true;
+  await upsertScore(activeJudge,activeTeam,obj);
+  btn.innerHTML="Save scores";btn.disabled=false;
+  cats.forEach((_,i)=>{const el=document.getElementById("sc-"+i);if(el)el.style.borderColor="";});
+  const fl=document.getElementById("save-flash");fl.classList.remove("hidden");setTimeout(()=>fl.classList.add("hidden"),2500);
+  renderTeamPickList();
+}
+
+async function clearScores(){
+  if(!confirm(`Clear scores for ${activeTeam}?`)) return;
+  (currentHK.categories||[]).forEach((_,i)=>{const el=document.getElementById("sc-"+i);if(el){el.value="";el.style.borderColor="";el.style.color="";}const bar=document.getElementById("bar-"+i);if(bar)bar.style.width="0%";const err=document.getElementById("err-"+i);if(err){err.textContent="";err.classList.add("hidden");}});
+  hide("val-msg");
+  await deleteScore(activeJudge,activeTeam);renderTeamPickList();updateAvg();
+}
+
+// ── RESULTS ────────────────────────────────────────────────
+function renderResults(){renderLeaderboard();renderCoverage();renderCatAvg();}
+function finalScore(team){const avgs=(currentHK.judges||[]).map(j=>{const s=getScore(j,team);if(!s)return null;const v=Object.values(s);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}).filter(v=>v!==null);return avgs.length?avgs.reduce((a,b)=>a+b,0)/avgs.length:null;}
+
+function renderLeaderboard(){
+  const el=document.getElementById("leaderboard-body");
+  const teams=currentHK.teams||[],judges=currentHK.judges||[];
+  if(!teams.length){el.innerHTML='<div class="empty">No teams yet.</div>';return;}
+  const ranked=teams.map(t=>({name:t,score:finalScore(t)})).sort((a,b)=>(b.score??-1)-(a.score??-1));
+  const medals=["🥇","🥈","🥉"];
+  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Team</th><th>Project</th><th>Score /20</th><th>Judges</th><th></th></tr></thead><tbody>${
+    ranked.map((t,i)=>{
+      const j=judges.filter(jj=>hasScore(jj,t.name)).length,pct=t.score!==null?(t.score/20*100).toFixed(1):0;
+      const sub=submissions.find(s=>s.team_name===t.name&&s.status==="accepted");
+      return `<tr><td class="${i<3?"rank-"+(i+1):""}">${i<3?medals[i]:""}${i+1}</td><td style="font-weight:500">${t.name}</td><td style="color:var(--text2);font-size:12px">${sub?sub.project_name:"—"}</td><td style="font-weight:600">${t.score!==null?t.score.toFixed(2):"—"}</td><td>${j}/${judges.length}</td><td style="width:100px"><div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div></td></tr>`;
+    }).join("")
+  }</tbody></table></div>`;
+}
+
+function renderCoverage(){
+  const el=document.getElementById("coverage-body");
+  const judges=currentHK.judges||[],teams=currentHK.teams||[];
+  if(!judges.length){el.innerHTML='<div class="empty">No judges.</div>';return;}
+  el.innerHTML=judges.map(j=>{const done=teams.filter(t=>hasScore(j,t)).length,pct=teams.length?(done/teams.length*100).toFixed(0):0;const pills=teams.map(t=>{const d=hasScore(j,t);return `<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin:2px;background:${d?"#d4f0df":"var(--surface2)"};color:${d?"var(--green)":"var(--text3)"}">${t}${d?" ✓":""}</span>`;}).join("");return `<div style="margin-bottom:14px"><div class="flex" style="margin-bottom:3px"><span style="font-size:13px;font-weight:600;flex:1">${j}</span><span style="font-size:12px;color:var(--text3)">${done}/${teams.length}</span></div><div class="prog-bar" style="margin-bottom:6px"><div class="prog-fill" style="width:${pct}%"></div></div><div style="display:flex;flex-wrap:wrap;gap:4px">${pills}</div></div>`;}).join("");
+}
+
+function renderCatAvg(){
+  const el=document.getElementById("catavg-body");
+  const cats=currentHK.categories||[],teams=currentHK.teams||[],judges=currentHK.judges||[];
+  el.innerHTML=cats.map((cat,i)=>{const vals=[];teams.forEach(t=>judges.forEach(j=>{const s=getScore(j,t);if(s&&s[i]!==undefined)vals.push(s[i]);}));const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null,pct=avg!==null?(avg/20*100).toFixed(1):0;return `<div style="margin-bottom:11px"><div class="flex" style="margin-bottom:3px"><span style="font-size:13px;flex:1">${cat}</span><span style="font-size:13px;font-weight:600">${avg!==null?avg.toFixed(2)+" / 20":"—"}</span></div><div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div></div>`;}).join("");
+}
+
+// ── LIGHTBOX ────────────────────────────────────────────────
+function openLightbox(src){document.getElementById("lightbox-img").src=src;show("lightbox");}
+function closeLightbox(){hide("lightbox");document.getElementById("lightbox-img").src="";}
+
+// ── UTILS ──────────────────────────────────────────────────
+function show(id){const el=document.getElementById(id);if(el)el.classList.remove("hidden");}
+function hide(id){const el=document.getElementById(id);if(el)el.classList.add("hidden");}
+function showMsg(el,txt,type){el.innerHTML=`<div class="alert alert-${type==="ok"?"success":"err"}">${txt}</div>`;el.classList.remove("hidden");}
+const _t={};
+function debounce(fn,ms){return function(...a){clearTimeout(_t[fn.name]);_t[fn.name]=setTimeout(()=>fn.apply(this,a),ms);};}
+</script>
+</body>
+</html>
