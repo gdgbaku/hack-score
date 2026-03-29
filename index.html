@@ -598,6 +598,8 @@ async function doLogin(){
 }
 
 async function enterApp(){
+  // reset judge state on every login
+  activeJudge=null; activeTeam=null; scores={}; submissions=[];
   hide("screen-login"); show("screen-app");
   if(currentRole==="admin"){
     document.getElementById("role-badge").textContent="Admin";
@@ -611,12 +613,16 @@ async function enterApp(){
     document.getElementById("app-title").textContent=currentHK.title;
     hide("view-admin"); show("view-organizer");
     setShareUrl();
-    await loadScores(); await loadSubmissions();
+    // always reload fresh from DB on login
+    await loadScores();
+    await loadSubmissions();
     renderSetup(); switchTab("setup"); setupOrgRT();
   }
 }
 
 function logout(){
+  // unsubscribe all active realtime channels before clearing state
+  if(sb) sb.removeAllChannels();
   currentRole=null;currentHK=null;activeJudge=null;activeTeam=null;scores={};submissions=[];
   hide("screen-app"); show("screen-login");
   document.getElementById("login-user").value="";
@@ -778,9 +784,12 @@ function bulkAdd(type){
 }
 
 function setupOrgRT(){
-  sb.channel("hj-org-"+currentHK.id)
+  const channelName="hj-org-"+currentHK.id+"-"+Date.now();
+  sb.channel(channelName)
     .on("postgres_changes",{event:"UPDATE",schema:"public",table:"hj_hackathons",filter:`id=eq.${currentHK.id}`},p=>{if(p.new){currentHK=p.new;renderSetup();}})
-    .on("postgres_changes",{event:"*",schema:"public",table:"hj_scores",filter:`hackathon_id=eq.${currentHK.id}`},p=>{if(p.new) scores[p.new.id]=p.new.scores;if(!document.getElementById("tab-results").classList.contains("hidden")) renderResults();if(activeJudge) renderTeamPickList();})
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"hj_scores",filter:`hackathon_id=eq.${currentHK.id}`},p=>{if(p.new) scores[p.new.id]=p.new.scores;if(!document.getElementById("tab-results").classList.contains("hidden")) renderResults();if(activeJudge) renderTeamPickList();})
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"hj_scores",filter:`hackathon_id=eq.${currentHK.id}`},p=>{if(p.new) scores[p.new.id]=p.new.scores;if(!document.getElementById("tab-results").classList.contains("hidden")) renderResults();if(activeJudge) renderTeamPickList();})
+    .on("postgres_changes",{event:"DELETE",schema:"public",table:"hj_scores",filter:`hackathon_id=eq.${currentHK.id}`},p=>{if(p.old&&p.old.id) delete scores[p.old.id];if(!document.getElementById("tab-results").classList.contains("hidden")) renderResults();if(activeJudge) renderTeamPickList();})
     .on("postgres_changes",{event:"*",schema:"public",table:"hj_submissions",filter:`hackathon_id=eq.${currentHK.id}`},async()=>{await loadSubmissions();renderSubmissions();updateSubBadge();})
     .subscribe();
 }
