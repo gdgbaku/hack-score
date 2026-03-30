@@ -244,13 +244,6 @@ tr:last-child td{border-bottom:none}
     </div>
     <div id="login-err" class="hidden" style="margin-bottom:12px"></div>
     <button class="btn btn-primary btn-full" onclick="doLogin()" id="login-btn">Sign in</button>
-    <div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)">
-      <div class="section-label" style="margin-bottom:8px">Supabase connection</div>
-      <div style="margin-bottom:8px"><input type="text" id="sb-url" placeholder="https://xxxx.supabase.co"></div>
-      <div style="margin-bottom:8px"><input type="text" id="sb-key" placeholder="anon public key (eyJ...)"></div>
-      <button class="btn btn-sm" style="width:100%;justify-content:center" onclick="saveSupabase()">Save &amp; test</button>
-      <div id="sb-msg" class="hidden" style="margin-top:8px"></div>
-    </div>
   </div>
 </div>
 
@@ -437,67 +430,33 @@ tr:last-child td{border-bottom:none}
 
 <script>
 // ── CONSTANTS ──────────────────────────────────────────────
-const ADMIN_USER="admin", ADMIN_PASS="admin123";
 const DEFAULT_CATS=["Problem-Solution Fit","Presentation & Storytelling","Business Model & Sustainability","Technical Execution & Integration","Impact & Market Potential"];
 
 // ── STATE ──────────────────────────────────────────────────
 let sb=null, currentRole=null, currentHK=null, hackathons=[], scores={}, submissions=[];
 let activeJudge=null, activeTeam=null, editingId=null;
-let uploadedPhotos=[]; // base64 strings
+let uploadedPhotos=[];
 
-// ── BOOT: detect ?submit=slug ──────────────────────────────
+// ── BOOT ───────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", async ()=>{
-  loadSBCreds();
+  // fetch Supabase config from server (keys never in HTML)
+  try{
+    const r=await fetch('/config');
+    const {url,key}=await r.json();
+    sb=supabase.createClient(url,key);
+  }catch(e){ console.error("Config fetch failed:",e); }
+
   const params=new URLSearchParams(location.search);
   const slug=params.get("submit");
   if(slug){
-    // PUBLIC SUBMISSION PAGE — hide everything else completely
-    hide("screen-login");
-    hide("screen-app");
-    await initSBFromStorage();
+    hide("screen-login"); hide("screen-app");
     await showSubmitPage(slug);
   } else {
-    // ADMIN / ORGANIZER LOGIN — hide submit page completely
-    hide("screen-submit");
-    hide("screen-app");
+    hide("screen-submit"); hide("screen-app");
     show("screen-login");
   }
-  // reveal page only after routing is done — no flicker
   document.body.style.visibility="visible";
 });
-
-async function fetchConfig() {
-  const r = await fetch('/config');
-  const { url, key } = await r.json();
-  sb = supabase.createClient(url, key);
-}
-// call fetchConfig() before anything else in DOMContentLoaded
-
-// ── SUPABASE ───────────────────────────────────────────────
-function loadSBCreds(){
-  const url=localStorage.getItem("hj_sb_url")||"";
-  const key=localStorage.getItem("hj_sb_key")||"";
-  if(url){const el=document.getElementById("sb-url"); if(el) el.value=url;}
-  if(key){const el=document.getElementById("sb-key"); if(el) el.value=key;}
-  if(url&&key) sb=supabase.createClient(url,key);
-}
-
-async function saveSupabase(){
-  const url=document.getElementById("sb-url").value.trim();
-  const key=document.getElementById("sb-key").value.trim();
-  const msg=document.getElementById("sb-msg");
-  msg.classList.add("hidden");
-  if(!url||!key){showMsg(msg,"Both fields required.","err");return;}
-  try{
-    sb=supabase.createClient(url,key);
-    const {error}=await sb.from("hj_hackathons").select("id").limit(1);
-    if(error&&error.code==="42P01"){showMsg(msg,"Tables missing — run SQL setup first.","err");return;}
-    if(error) throw error;
-    localStorage.setItem("hj_sb_url",url);
-    localStorage.setItem("hj_sb_key",key);
-    showMsg(msg,"Connected! You can now sign in.","ok");
-  }catch(e){showMsg(msg,"Failed: "+e.message,"err");}
-}
 
 // ── SUBMIT PAGE ────────────────────────────────────────────
 async function showSubmitPage(slug){
@@ -553,20 +512,24 @@ async function submitProject(){
     errEl.innerHTML='<div class="alert alert-err">Please fill in all required fields.</div>';
     errEl.classList.remove("hidden"); return;
   }
-  if(!window._submitHK){errEl.innerHTML='<div class="alert alert-err">Hackathon not configured.</div>';errEl.classList.remove("hidden");return;}
+  if(!window._submitHK){errEl.innerHTML='<div class="alert alert-err">Hackathon not found.</div>';errEl.classList.remove("hidden");return;}
   const btn=document.getElementById("submit-btn");
   btn.innerHTML='<span class="spinner"></span> Submitting…'; btn.disabled=true;
   try{
-    const {error}=await sb.from("hj_submissions").insert({
-      hackathon_id:window._submitHK.id,
-      team_name:team, project_name:project,
-      description:desc,
-      github_url:github||null,
-      shared_url:url||null,
-      photos:uploadedPhotos,
-      status:"pending"
+    const r=await fetch('/api/submit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        hackathon_id:window._submitHK.id,
+        team_name:team, project_name:project,
+        description:desc,
+        github_url:github||null,
+        shared_url:url||null,
+        photos:uploadedPhotos
+      })
     });
-    if(error) throw error;
+    const result=await r.json();
+    if(!result.ok) throw new Error(result.error||'Submission failed');
     document.getElementById("submit-form").classList.add("hidden");
     document.getElementById("submit-success").classList.remove("hidden");
   }catch(e){
@@ -583,18 +546,29 @@ async function doLogin(){
   const errEl=document.getElementById("login-err");
   const btn=document.getElementById("login-btn");
   errEl.classList.add("hidden");
-  if(!sb){showMsg(errEl,"Configure Supabase connection first.","err");return;}
   if(!user||!pass){showMsg(errEl,"Enter username and password.","err");return;}
   btn.innerHTML='<span class="spinner"></span> Signing in…'; btn.disabled=true;
-  if(user===ADMIN_USER&&pass===ADMIN_PASS){
-    currentRole="admin"; await enterApp();
-  } else {
-    try{
-      const {data,error}=await sb.from("hj_hackathons").select("*").eq("username",user).eq("password",pass).single();
-      if(error||!data){showMsg(errEl,"Invalid username or password.","err");btn.innerHTML="Sign in";btn.disabled=false;return;}
-      currentRole="organizer"; currentHK=data; await enterApp();
-    }catch(e){showMsg(errEl,"Login error: "+e.message,"err");}
-  }
+  try{
+    // try admin first
+    const adminRes=await fetch('/admin-login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:user,password:pass})
+    });
+    if(adminRes.ok){
+      const result=await adminRes.json();
+      if(result.ok){ currentRole="admin"; await enterApp(); btn.innerHTML="Sign in"; btn.disabled=false; return; }
+    }
+    // try organizer
+    const orgRes=await fetch('/api/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:user,password:pass})
+    });
+    const orgResult=await orgRes.json();
+    if(!orgResult.ok){ showMsg(errEl,"Invalid username or password.","err"); btn.innerHTML="Sign in"; btn.disabled=false; return; }
+    currentRole="organizer"; currentHK=orgResult.hackathon; await enterApp();
+  }catch(e){ showMsg(errEl,"Login error: "+e.message,"err"); }
   btn.innerHTML="Sign in"; btn.disabled=false;
 }
 
@@ -675,18 +649,27 @@ async function saveHackathon(){
   const password=document.getElementById("m-pass").value;
   const errEl=document.getElementById("modal-err");
   errEl.classList.add("hidden");
-  if(!title||!username||!password){showMsg(errEl,"All fields required.","err");return;}
-  if(username===ADMIN_USER){showMsg(errEl,`Username "${ADMIN_USER}" is reserved.`,"err");return;}
+  if(!title||!username){showMsg(errEl,"Title and username are required.","err");return;}
+  if(!editingId&&!password){showMsg(errEl,"Password is required.","err");return;}
   const btn=document.getElementById("modal-btn");
   btn.innerHTML='<span class="spinner"></span>'; btn.disabled=true;
   try{
+    let r;
     if(editingId){
-      const {error}=await sb.from("hj_hackathons").update({title,username,password}).eq("id",editingId);
-      if(error) throw error;
+      r=await fetch(`/api/hackathon/${editingId}`,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({title,username,...(password&&{password})})
+      });
     } else {
-      const {error}=await sb.from("hj_hackathons").insert({title,username,password,teams:[],judges:[],categories:[...DEFAULT_CATS]});
-      if(error) throw error;
+      r=await fetch('/api/hackathon',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({title,username,password,teams:[],judges:[],categories:[...DEFAULT_CATS]})
+      });
     }
+    const result=await r.json();
+    if(!result.ok) throw new Error(result.error);
     closeModal(); await loadHackathons(); renderAdminList();
   }catch(e){showMsg(errEl,e.message.includes("unique")?"Username already taken.":e.message,"err");}
   btn.innerHTML=editingId?"Save changes":"Create"; btn.disabled=false;
@@ -694,7 +677,7 @@ async function saveHackathon(){
 
 async function deleteHK(id,title){
   if(!confirm(`Delete "${title}"?\nAll submissions and scores will be lost.`)) return;
-  await sb.from("hj_hackathons").delete().eq("id",id);
+  await fetch(`/api/hackathon/${id}`,{method:'DELETE'});
   await loadHackathons(); renderAdminList();
 }
 
@@ -863,9 +846,17 @@ async function switchTab(t){
     const nb=document.getElementById("nav-"+id);
     if(nb) nb.classList.toggle("active",id===t);
   });
-  if(t==="submissions"){await loadSubmissions();renderSubmissions();}
-  if(t==="judge"){await reloadHK();await loadScores();renderJudgeView();}
-  if(t==="results"){await loadScores();renderResults();}
+  if(t==="submissions"){ await loadSubmissions(); renderSubmissions(); }
+  if(t==="judge"){
+    await reloadHK();
+    await loadScores(); // always reload fresh from DB
+    renderJudgeView();
+  }
+  if(t==="results"){
+    await loadScores(); // always reload fresh from DB
+    await loadSubmissions();
+    renderResults();
+  }
 }
 
 async function reloadHK(){
@@ -876,14 +867,30 @@ async function reloadHK(){
 // ── SCORES ─────────────────────────────────────────────────
 async function loadScores(){
   if(!currentHK) return;
-  const {data}=await sb.from("hj_scores").select("id,scores").eq("hackathon_id",currentHK.id);
-  if(data) data.forEach(r=>{scores[r.id]=r.scores;});
+  scores={}; // always clear first to avoid stale data from previous session
+  const {data,error}=await sb.from("hj_scores").select("id,scores").eq("hackathon_id",currentHK.id);
+  if(error){ console.error("loadScores error:",error); return; }
+  if(data) data.forEach(r=>{ scores[r.id]=r.scores; });
+  console.log("loadScores: loaded",Object.keys(scores).length,"score records for hackathon",currentHK.id);
 }
 function sk(j,t){return `${j}|||${t}`;}
 function getScore(j,t){return scores[sk(j,t)]||null;}
 function hasScore(j,t){return !!scores[sk(j,t)];}
-async function upsertScore(j,t,obj){scores[sk(j,t)]=obj;await sb.from("hj_scores").upsert({id:sk(j,t),hackathon_id:currentHK.id,judge:j,team:t,scores:obj,updated_at:new Date().toISOString()});}
-async function deleteScore(j,t){delete scores[sk(j,t)];await sb.from("hj_scores").delete().eq("id",sk(j,t));}
+async function upsertScore(j,t,obj){
+  scores[sk(j,t)]=obj;
+  const {error}=await sb.from("hj_scores").upsert({
+    id:sk(j,t), hackathon_id:currentHK.id,
+    judge:j, team:t, scores:obj,
+    updated_at:new Date().toISOString()
+  });
+  if(error){ console.error("upsertScore error:",error); alert("Failed to save scores: "+error.message); }
+  else { console.log("upsertScore: saved",sk(j,t),obj); }
+}
+async function deleteScore(j,t){
+  delete scores[sk(j,t)];
+  const {error}=await sb.from("hj_scores").delete().eq("id",sk(j,t));
+  if(error) console.error("deleteScore error:",error);
+}
 
 // ── JUDGE PANEL ────────────────────────────────────────────
 function renderJudgeView(){
