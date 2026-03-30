@@ -35,28 +35,19 @@ app.get('/config', (req, res) => {
   });
 });
 
-// ── Temp debug endpoint ───────────────────────────────────
-app.get('/debug-env', (req, res) => {
-  res.json({
-    admin_username: process.env.ADMIN_USERNAME,
-    admin_password: process.env.ADMIN_PASSWORD,
-    has_supabase_url: !!process.env.SUPABASE_URL,
-    has_supabase_key: !!process.env.SUPABASE_KEY,
-    has_service_key: !!process.env.SUPABASE_SERVICE_KEY,
-    node_env: process.env.NODE_ENV
-  });
-});
-
 // ── Admin login ───────────────────────────────────────────
 app.post('/admin-login', (req, res) => {
   const { username, password } = req.body;
-  const adminUser = process.env.ADMIN_USERNAME || 'admin';
-  const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
-  console.log('Login attempt — user:', username, '| env loaded:', !!process.env.ADMIN_USERNAME);
-  if (username === adminUser && password === adminPass) {
+  if (!username || !password) {
+    return res.status(400).json({ ok: false, error: 'Missing credentials' });
+  }
+  if (
+    username === process.env.ADMIN_USERNAME &&
+    password === process.env.ADMIN_PASSWORD
+  ) {
     res.json({ ok: true });
   } else {
-    res.status(401).json({ ok: false, debug: { envLoaded: !!process.env.ADMIN_USERNAME } });
+    res.status(401).json({ ok: false });
   }
 });
 
