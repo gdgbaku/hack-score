@@ -10,20 +10,17 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname)));
 
-// ── Supabase clients ──────────────────────────────────────
-// trim() all env vars to remove accidental spaces/equals signs
+// ── Supabase client ───────────────────────────────────────
+// Using anon key for all operations — RLS policies are open.
+// Will switch to service key in Phase 1 when RLS is tightened.
 function getSB() {
   return createClient(
     (process.env.SUPABASE_URL || '').trim(),
     (process.env.SUPABASE_KEY || '').trim()
   );
 }
-function getAdminSB() {
-  const serviceKey = (process.env.SUPABASE_SERVICE_KEY || '').trim();
-  const url = (process.env.SUPABASE_URL || '').trim();
-  // fall back to anon key if service key not set
-  return createClient(url, serviceKey || (process.env.SUPABASE_KEY || '').trim());
-}
+// alias — both use same key until RLS is tightened
+const getAdminSB = getSB;
 
 // ── Rate limiter for submissions ──────────────────────────
 const submitLimiter = rateLimit({
