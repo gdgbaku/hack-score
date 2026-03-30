@@ -184,6 +184,20 @@ tr:last-child td{border-bottom:none}
       <h1 id="submit-hk-title">Submit Your Project</h1>
       <p id="submit-hk-sub">Fill in your team details below</p>
     </div>
+
+    <!-- deadline banner -->
+    <div id="deadline-banner" class="hidden" style="margin-bottom:12px"></div>
+
+    <!-- status lookup -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:10px">Check your submission status</div>
+      <div class="flex">
+        <input type="text" id="status-team-inp" placeholder="Enter your team name" class="flex-1" onkeydown="if(event.key==='Enter')checkStatus()">
+        <button class="btn btn-primary" onclick="checkStatus()">Check</button>
+      </div>
+      <div id="status-result" style="margin-top:10px;display:none"></div>
+    </div>
+
     <div class="card">
       <div id="submit-form">
         <div class="form-group">
@@ -222,7 +236,7 @@ tr:last-child td{border-bottom:none}
       <div id="submit-success" class="hidden" style="text-align:center;padding:32px 16px">
         <div style="font-size:48px;margin-bottom:12px">🎉</div>
         <div style="font-size:18px;font-weight:600;margin-bottom:8px">Submission received!</div>
-        <div style="font-size:14px;color:var(--text2)">Your project has been submitted. The organizer will review it shortly.</div>
+        <div style="font-size:14px;color:var(--text2)">Your project has been submitted. The organizer will review it shortly. Use the status checker above to track your submission.</div>
       </div>
     </div>
   </div>
@@ -293,6 +307,15 @@ tr:last-child td{border-bottom:none}
         <p style="font-size:13px;color:var(--text2);margin-bottom:8px">Share this link with teams so they can submit their projects:</p>
         <div class="share-url-box" id="share-url-box" onclick="copyShareUrl()" title="Click to copy"></div>
         <p style="font-size:11px;color:var(--text3);margin-top:6px">Click to copy · Teams submit here, you review in the Submissions tab</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Submission Deadline</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:10px">After this date/time the submission form will be closed. Leave blank for no deadline.</p>
+        <div class="flex">
+          <input type="datetime-local" id="hk-deadline" style="flex:1" oninput="debounce(saveDeadline,600)()">
+          <button class="btn btn-sm btn-danger" onclick="clearDeadline()">Clear</button>
+        </div>
+        <div id="deadline-status" style="font-size:12px;margin-top:8px"></div>
       </div>
       <div class="card">
         <div class="flex" style="margin-bottom:14px">
@@ -475,15 +498,90 @@ window.addEventListener("DOMContentLoaded", async ()=>{
 
 // ── SUBMIT PAGE ────────────────────────────────────────────
 async function showSubmitPage(slug){
-  if(!sb){show("screen-submit");document.getElementById("submit-hk-title").textContent="Submission Form";document.getElementById("submit-hk-sub").textContent="Configure Supabase to enable submissions.";return;}
+  if(!sb){
+    show("screen-submit");
+    document.getElementById("submit-hk-title").textContent="Submission Form";
+    document.getElementById("submit-hk-sub").textContent="Platform not configured.";
+    return;
+  }
   try{
-    const {data,error}=await sb.from("hj_hackathons").select("id,title,username").eq("username",slug).single();
-    if(error||!data){show("screen-submit");document.getElementById("submit-hk-title").textContent="Hackathon not found";document.getElementById("submit-hk-sub").textContent=`No hackathon found for "${slug}".`;document.getElementById("submit-form").classList.add("hidden");return;}
+    const {data,error}=await sb.from("hj_hackathons").select("id,title,username,submission_deadline").eq("username",slug).single();
+    if(error||!data){
+      show("screen-submit");
+      document.getElementById("submit-hk-title").textContent="Hackathon not found";
+      document.getElementById("submit-hk-sub").textContent=`No hackathon found for "${slug}".`;
+      document.getElementById("submit-form").classList.add("hidden");
+      return;
+    }
     window._submitHK=data;
     document.getElementById("submit-hk-title").textContent=data.title;
-    document.getElementById("submit-hk-sub").textContent="Submit your team project below";
+
+    // check deadline
+    const banner=document.getElementById("deadline-banner");
+    if(data.submission_deadline){
+      const deadline=new Date(data.submission_deadline);
+      const now=new Date();
+      const isPast=now>deadline;
+      const formatted=deadline.toLocaleString();
+      if(isPast){
+        // deadline passed — close the form
+        banner.innerHTML=`<div class="alert alert-err" style="text-align:center;font-size:14px">⏰ Submissions closed on ${formatted}</div>`;
+        banner.classList.remove("hidden");
+        document.getElementById("submit-form").classList.add("hidden");
+        document.getElementById("submit-hk-sub").textContent="Submission period has ended";
+      } else {
+        // deadline upcoming — show countdown
+        const diff=deadline-now;
+        const days=Math.floor(diff/86400000);
+        const hours=Math.floor((diff%86400000)/3600000);
+        const mins=Math.floor((diff%3600000)/60000);
+        const timeLeft=days>0?`${days}d ${hours}h`:`${hours}h ${mins}m`;
+        banner.innerHTML=`<div class="alert alert-warn" style="text-align:center">⏰ Submission deadline: ${formatted} <strong>(${timeLeft} left)</strong></div>`;
+        banner.classList.remove("hidden");
+        document.getElementById("submit-hk-sub").textContent="Fill in your team details below";
+      }
+    } else {
+      document.getElementById("submit-hk-sub").textContent="Fill in your team details below";
+    }
     show("screen-submit");
   }catch(e){console.error(e);}
+}
+
+async function checkStatus(){
+  const name=document.getElementById("status-team-inp").value.trim();
+  const resultEl=document.getElementById("status-result");
+  if(!name){resultEl.style.display="none";return;}
+  if(!window._submitHK){return;}
+  resultEl.style.display="block";
+  resultEl.innerHTML='<div style="font-size:13px;color:var(--text3)">Checking…</div>';
+  try{
+    const {data}=await sb.from("hj_submissions")
+      .select("team_name,project_name,status,submitted_at")
+      .eq("hackathon_id",window._submitHK.id)
+      .ilike("team_name",name)
+      .order("submitted_at",{ascending:false})
+      .limit(1);
+    if(!data||!data.length){
+      resultEl.innerHTML=`<div class="alert alert-warn">No submission found for "<strong>${name}</strong>". Check your team name spelling.</div>`;
+      return;
+    }
+    const s=data[0];
+    const statusConfig={
+      pending:{color:"#92700a",bg:"#fff8e6",border:"rgba(146,112,10,.2)",icon:"⏳",label:"Under review"},
+      accepted:{color:"#1a6b3a",bg:"#f0faf4",border:"rgba(26,107,58,.2)",icon:"✅",label:"Accepted"},
+      rejected:{color:"#c0392b",bg:"#fdf0ef",border:"rgba(192,57,43,.2)",icon:"❌",label:"Not accepted"}
+    };
+    const cfg=statusConfig[s.status]||statusConfig.pending;
+    const date=new Date(s.submitted_at).toLocaleString();
+    resultEl.innerHTML=`<div style="padding:14px;border-radius:9px;background:${cfg.bg};border:0.5px solid ${cfg.border}">
+      <div style="font-size:16px;font-weight:600;color:${cfg.color};margin-bottom:4px">${cfg.icon} ${cfg.label}</div>
+      <div style="font-size:13px;font-weight:500">${s.team_name}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">Project: ${s.project_name}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Submitted: ${date}</div>
+    </div>`;
+  }catch(e){
+    resultEl.innerHTML=`<div class="alert alert-err">Error checking status: ${e.message}</div>`;
+  }
 }
 
 function handlePhotos(input){
@@ -526,6 +624,13 @@ async function submitProject(){
   if(!team||!project||!desc){
     errEl.innerHTML='<div class="alert alert-err">Please fill in all required fields.</div>';
     errEl.classList.remove("hidden"); return;
+  }
+  // enforce deadline client-side
+  if(window._submitHK&&window._submitHK.submission_deadline){
+    if(new Date()>new Date(window._submitHK.submission_deadline)){
+      errEl.innerHTML='<div class="alert alert-err">Submissions are closed — the deadline has passed.</div>';
+      errEl.classList.remove("hidden"); return;
+    }
   }
   if(!window._submitHK){errEl.innerHTML='<div class="alert alert-err">Hackathon not found.</div>';errEl.classList.remove("hidden");return;}
   const btn=document.getElementById("submit-btn");
@@ -760,11 +865,55 @@ function copyShareUrl(){
 async function pushConfig(){
   currentHK.title=document.getElementById("hk-name").value;
   document.getElementById("app-title").textContent=currentHK.title;
-  await sb.from("hj_hackathons").update({title:currentHK.title,teams:currentHK.teams,judges:currentHK.judges,categories:currentHK.categories}).eq("id",currentHK.id);
+  await sb.from("hj_hackathons").update({
+    title:currentHK.title,
+    teams:currentHK.teams,
+    judges:currentHK.judges,
+    categories:currentHK.categories,
+    submission_deadline:currentHK.submission_deadline||null
+  }).eq("id",currentHK.id);
 }
 
 async function pushArr(){
-  await sb.from("hj_hackathons").update({teams:currentHK.teams,judges:currentHK.judges,categories:currentHK.categories}).eq("id",currentHK.id);
+  await sb.from("hj_hackathons").update({
+    teams:currentHK.teams,
+    judges:currentHK.judges,
+    categories:currentHK.categories
+  }).eq("id",currentHK.id);
+}
+
+async function saveDeadline(){
+  const val=document.getElementById("hk-deadline").value;
+  currentHK.submission_deadline=val?new Date(val).toISOString():null;
+  await sb.from("hj_hackathons").update({submission_deadline:currentHK.submission_deadline}).eq("id",currentHK.id);
+  renderDeadlineStatus();
+}
+
+async function clearDeadline(){
+  document.getElementById("hk-deadline").value="";
+  currentHK.submission_deadline=null;
+  await sb.from("hj_hackathons").update({submission_deadline:null}).eq("id",currentHK.id);
+  renderDeadlineStatus();
+}
+
+function renderDeadlineStatus(){
+  const el=document.getElementById("deadline-status");
+  if(!el) return;
+  if(!currentHK.submission_deadline){
+    el.innerHTML='<span style="color:var(--text3)">No deadline set — submissions open indefinitely</span>';
+    return;
+  }
+  const d=new Date(currentHK.submission_deadline);
+  const now=new Date();
+  if(now>d){
+    el.innerHTML=`<span style="color:var(--red)">⏰ Deadline passed — submissions are closed</span>`;
+  } else {
+    const diff=d-now;
+    const days=Math.floor(diff/86400000);
+    const hours=Math.floor((diff%86400000)/3600000);
+    const timeLeft=days>0?`${days}d ${hours}h`:`${hours}h ${Math.floor((diff%3600000)/60000)}m`;
+    el.innerHTML=`<span style="color:var(--green)">✓ Open · closes in ${timeLeft} (${d.toLocaleString()})</span>`;
+  }
 }
 
 function renderSetup(){
@@ -773,6 +922,17 @@ function renderSetup(){
   renderTags("judges-tags",currentHK.judges||[],"judges");
   renderCats();
   setShareUrl();
+  // render deadline
+  const dl=document.getElementById("hk-deadline");
+  if(dl&&currentHK.submission_deadline){
+    // convert ISO to datetime-local format
+    const d=new Date(currentHK.submission_deadline);
+    const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    dl.value=local;
+  } else if(dl){
+    dl.value="";
+  }
+  renderDeadlineStatus();
 }
 
 function renderTags(elId,arr,type){
@@ -894,6 +1054,23 @@ async function reviewSub(id,status,teamName){
   }
   currentHK.teams=teams;
   await pushArr();
+  // send email notification to team
+  if(status==="accepted"||status==="rejected"){
+    const sub=submissions.find(s=>s.id===id);
+    if(sub&&sub.team_email){
+      fetch('/api/notify',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          to: sub.team_email,
+          team_name: sub.team_name,
+          project_name: sub.project_name,
+          hackathon_title: currentHK.title,
+          status
+        })
+      }).catch(e=>console.warn('Email notification failed:',e));
+    }
+  }
   await loadSubmissions();
   renderSubmissions();
   renderTags("teams-tags",currentHK.teams,"teams");
