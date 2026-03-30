@@ -408,17 +408,32 @@ tr:last-child td{border-bottom:none}
 </div>
 </div>
 
-<!-- ADMIN MODAL -->
+<!-- ADMIN MODAL: create / edit hackathon -->
 <div id="modal" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-title" id="modal-title">New Hackathon</div>
     <div class="form-group"><label class="form-label">Hackathon Title</label><input type="text" id="m-title" placeholder="e.g. InnovateBaku 2025"></div>
     <div class="form-group"><label class="form-label">Organizer Username</label><input type="text" id="m-user" placeholder="e.g. baku2025"></div>
-    <div class="form-group"><label class="form-label">Organizer Password</label><input type="password" id="m-pass" placeholder="Set a password"></div>
+    <div id="m-pass-group" class="form-group"><label class="form-label">Organizer Password</label><input type="password" id="m-pass" placeholder="Set a password"></div>
     <div id="modal-err" class="hidden" style="margin-top:4px"></div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" id="modal-btn" onclick="saveHackathon()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET PASSWORD MODAL -->
+<div id="reset-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Reset Password</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px" id="reset-modal-sub"></p>
+    <div class="form-group"><label class="form-label">New Password</label><input type="password" id="reset-pass" placeholder="Min 6 characters"></div>
+    <div class="form-group"><label class="form-label">Confirm Password</label><input type="password" id="reset-pass2" placeholder="Repeat password"></div>
+    <div id="reset-err" class="hidden" style="margin-top:4px"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeResetModal()">Cancel</button>
+      <button class="btn btn-primary" id="reset-btn" onclick="doResetPassword()">Reset password</button>
     </div>
   </div>
 </div>
@@ -631,6 +646,7 @@ function renderAdminList(){
       </div>
       <div class="hk-actions">
         <button class="btn btn-sm" onclick="openModal('${hk.id}')">Edit</button>
+        <button class="btn btn-sm" onclick="openResetModal('${hk.id}','${hk.title.replace(/'/g,"\\'")}')">🔑 Reset pw</button>
         <button class="btn btn-sm btn-danger" onclick="deleteHK('${hk.id}','${hk.title.replace(/'/g,"\\'")}')">Delete</button>
       </div>
     </div>`).join("");
@@ -642,7 +658,9 @@ function openModal(id){
   document.getElementById("modal-title").textContent=hk?"Edit Hackathon":"New Hackathon";
   document.getElementById("m-title").value=hk?hk.title:"";
   document.getElementById("m-user").value=hk?hk.username:"";
-  document.getElementById("m-pass").value=hk?hk.password:"";
+  document.getElementById("m-pass").value="";
+  // hide password field when editing — use Reset Password button instead
+  document.getElementById("m-pass-group").style.display=hk?"none":"";
   document.getElementById("modal-btn").textContent=hk?"Save changes":"Create";
   document.getElementById("modal-err").classList.add("hidden");
   show("modal");
@@ -665,7 +683,7 @@ async function saveHackathon(){
       r=await fetch(`/api/hackathon/${editingId}`,{
         method:'PUT',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({title,username,...(password&&{password})})
+        body:JSON.stringify({title,username})
       });
     } else {
       r=await fetch('/api/hackathon',{
@@ -675,7 +693,7 @@ async function saveHackathon(){
       });
     }
     const result=await r.json();
-    if(!result.ok) throw new Error(result.error);
+    if(!result.ok) throw new Error(result.error||'Failed');
     closeModal(); await loadHackathons(); renderAdminList();
   }catch(e){showMsg(errEl,e.message.includes("unique")?"Username already taken.":e.message,"err");}
   btn.innerHTML=editingId?"Save changes":"Create"; btn.disabled=false;
@@ -685,6 +703,42 @@ async function deleteHK(id,title){
   if(!confirm(`Delete "${title}"?\nAll submissions and scores will be lost.`)) return;
   await fetch(`/api/hackathon/${id}`,{method:'DELETE'});
   await loadHackathons(); renderAdminList();
+}
+
+// ── RESET PASSWORD ─────────────────────────────────────────
+let resetTargetId=null;
+function openResetModal(id,title){
+  resetTargetId=id;
+  document.getElementById("reset-modal-sub").textContent=`Reset password for: ${title}`;
+  document.getElementById("reset-pass").value="";
+  document.getElementById("reset-pass2").value="";
+  document.getElementById("reset-err").classList.add("hidden");
+  show("reset-modal");
+}
+function closeResetModal(){hide("reset-modal");resetTargetId=null;}
+
+async function doResetPassword(){
+  const pass=document.getElementById("reset-pass").value;
+  const pass2=document.getElementById("reset-pass2").value;
+  const errEl=document.getElementById("reset-err");
+  errEl.classList.add("hidden");
+  if(!pass||pass.length<6){showMsg(errEl,"Password must be at least 6 characters.","err");return;}
+  if(pass!==pass2){showMsg(errEl,"Passwords do not match.","err");return;}
+  const btn=document.getElementById("reset-btn");
+  btn.innerHTML='<span class="spinner"></span>'; btn.disabled=true;
+  try{
+    const r=await fetch(`/api/hackathon/${resetTargetId}/reset-password`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({newPassword:pass})
+    });
+    const result=await r.json();
+    if(!result.ok) throw new Error(result.error||'Failed');
+    closeResetModal();
+    // show success briefly
+    alert('Password reset successfully!');
+  }catch(e){showMsg(errEl,e.message,"err");}
+  btn.innerHTML="Reset password"; btn.disabled=false;
 }
 
 // ── ORGANIZER SETUP ────────────────────────────────────────
