@@ -35,6 +35,18 @@ app.get('/config', (req, res) => {
   });
 });
 
+// ── Temp debug endpoint ───────────────────────────────────
+app.get('/debug-env', (req, res) => {
+  res.json({
+    admin_username: process.env.ADMIN_USERNAME,
+    admin_password: process.env.ADMIN_PASSWORD,
+    has_supabase_url: !!process.env.SUPABASE_URL,
+    has_supabase_key: !!process.env.SUPABASE_KEY,
+    has_service_key: !!process.env.SUPABASE_SERVICE_KEY,
+    node_env: process.env.NODE_ENV
+  });
+});
+
 // ── Admin login ───────────────────────────────────────────
 app.post('/admin-login', (req, res) => {
   const { username, password } = req.body;
