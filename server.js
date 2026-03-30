@@ -38,6 +38,11 @@ app.get('/config', (req, res) => {
 // ── Admin login ───────────────────────────────────────────
 app.post('/admin-login', (req, res) => {
   const { username, password } = req.body;
+  console.log('Admin login attempt:', username);
+  console.log('ENV ADMIN_USERNAME set:', !!process.env.ADMIN_USERNAME);
+  console.log('ENV ADMIN_PASSWORD set:', !!process.env.ADMIN_PASSWORD);
+  console.log('Username match:', username === process.env.ADMIN_USERNAME);
+  console.log('Password match:', password === process.env.ADMIN_PASSWORD);
   if (
     username === process.env.ADMIN_USERNAME &&
     password === process.env.ADMIN_PASSWORD
