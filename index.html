@@ -489,10 +489,36 @@ window.addEventListener("DOMContentLoaded", async ()=>{
   if(slug){
     hide("screen-login"); hide("screen-app");
     await showSubmitPage(slug);
-  } else {
-    hide("screen-submit"); hide("screen-app");
-    show("screen-login");
+    document.body.style.visibility="visible";
+    return;
   }
+
+  // ── restore session on refresh ──
+  try{
+    const saved=sessionStorage.getItem("hj_session");
+    if(saved){
+      const session=JSON.parse(saved);
+      if(session.role==="admin"){
+        currentRole="admin";
+        await enterApp();
+        document.body.style.visibility="visible";
+        return;
+      } else if(session.role==="organizer"&&session.hkId){
+        // reload hackathon fresh from DB
+        const {data}=await sb.from("hj_hackathons").select("*").eq("id",session.hkId).single();
+        if(data){
+          currentRole="organizer";
+          currentHK=data;
+          await enterApp();
+          document.body.style.visibility="visible";
+          return;
+        }
+      }
+    }
+  }catch(e){ sessionStorage.removeItem("hj_session"); }
+
+  hide("screen-submit"); hide("screen-app");
+  show("screen-login");
   document.body.style.visibility="visible";
 });
 
@@ -703,18 +729,21 @@ async function enterApp(){
   activeJudge=null; activeTeam=null; scores={}; submissions=[];
   hide("screen-login"); show("screen-app");
   if(currentRole==="admin"){
+    // save session
+    sessionStorage.setItem("hj_session",JSON.stringify({role:"admin"}));
     document.getElementById("role-badge").textContent="Admin";
     document.getElementById("role-badge").className="role-badge role-admin";
     document.getElementById("app-title").textContent="Admin Dashboard";
     show("view-admin"); hide("view-organizer");
     await loadHackathons(); renderAdminList(); setupAdminRT();
   } else {
+    // save session
+    sessionStorage.setItem("hj_session",JSON.stringify({role:"organizer",hkId:currentHK.id}));
     document.getElementById("role-badge").textContent="Organizer";
     document.getElementById("role-badge").className="role-badge role-organizer";
     document.getElementById("app-title").textContent=currentHK.title;
     hide("view-admin"); show("view-organizer");
     setShareUrl();
-    // always reload fresh from DB on login
     await loadScores();
     await loadSubmissions();
     renderSetup(); switchTab("setup"); setupOrgRT();
@@ -722,8 +751,8 @@ async function enterApp(){
 }
 
 function logout(){
-  // unsubscribe all active realtime channels before clearing state
   if(sb) sb.removeAllChannels();
+  sessionStorage.removeItem("hj_session");
   currentRole=null;currentHK=null;activeJudge=null;activeTeam=null;scores={};submissions=[];
   hide("screen-app"); show("screen-login");
   document.getElementById("login-user").value="";
