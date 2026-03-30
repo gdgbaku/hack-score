@@ -549,26 +549,32 @@ async function doLogin(){
   if(!user||!pass){showMsg(errEl,"Enter username and password.","err");return;}
   btn.innerHTML='<span class="spinner"></span> Signing in…'; btn.disabled=true;
   try{
-    // try admin first
+    // try admin login
     const adminRes=await fetch('/admin-login',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({username:user,password:pass})
     });
-    if(adminRes.ok){
-      const result=await adminRes.json();
-      if(result.ok){ currentRole="admin"; await enterApp(); btn.innerHTML="Sign in"; btn.disabled=false; return; }
+    const adminResult=await adminRes.json();
+    if(adminResult.ok){
+      currentRole="admin"; await enterApp();
+      btn.innerHTML="Sign in"; btn.disabled=false; return;
     }
-    // try organizer
+    // try organizer login
     const orgRes=await fetch('/api/login',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({username:user,password:pass})
     });
     const orgResult=await orgRes.json();
-    if(!orgResult.ok){ showMsg(errEl,"Invalid username or password.","err"); btn.innerHTML="Sign in"; btn.disabled=false; return; }
+    if(!orgResult.ok){
+      showMsg(errEl,"Invalid username or password.","err");
+      btn.innerHTML="Sign in"; btn.disabled=false; return;
+    }
     currentRole="organizer"; currentHK=orgResult.hackathon; await enterApp();
-  }catch(e){ showMsg(errEl,"Login error: "+e.message,"err"); }
+  }catch(e){
+    showMsg(errEl,"Login error: "+e.message,"err");
+  }
   btn.innerHTML="Sign in"; btn.disabled=false;
 }
 
