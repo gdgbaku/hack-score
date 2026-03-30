@@ -466,11 +466,12 @@ window.addEventListener("DOMContentLoaded", async ()=>{
   document.body.style.visibility="visible";
 });
 
-async function initSBFromStorage(){
-  const url=localStorage.getItem("hj_sb_url");
-  const key=localStorage.getItem("hj_sb_key");
-  if(url&&key) sb=supabase.createClient(url,key);
+async function fetchConfig() {
+  const r = await fetch('/config');
+  const { url, key } = await r.json();
+  sb = supabase.createClient(url, key);
 }
+// call fetchConfig() before anything else in DOMContentLoaded
 
 // ── SUPABASE ───────────────────────────────────────────────
 function loadSBCreds(){
