@@ -180,7 +180,10 @@ tr:last-child td{border-bottom:none}
 <div id="screen-submit" class="hidden">
   <div class="submit-wrap">
     <div class="submit-header">
-      <div class="logo-big">🚀</div>
+      <div id="submit-logo-wrap" style="display:none;margin-bottom:12px">
+        <img id="submit-logo" style="max-height:70px;max-width:220px;object-fit:contain;border-radius:8px" alt="Event logo">
+      </div>
+      <div class="logo-big" id="submit-default-icon">🚀</div>
       <h1 id="submit-hk-title">Submit Your Project</h1>
       <p id="submit-hk-sub">Fill in your team details below</p>
     </div>
@@ -238,6 +241,10 @@ tr:last-child td{border-bottom:none}
         <div style="font-size:18px;font-weight:600;margin-bottom:8px">Submission received!</div>
         <div style="font-size:14px;color:var(--text2)">Your project has been submitted. The organizer will review it shortly. Use the status checker above to track your submission.</div>
       </div>
+    </div>
+    <!-- organizer website footer -->
+    <div id="submit-footer" style="text-align:center;padding:16px 0 8px;display:none">
+      <a id="submit-website-link" href="#" target="_blank" style="font-size:12px;color:var(--text3);text-decoration:none">🌐 <span id="submit-website-text"></span></a>
     </div>
   </div>
 </div>
@@ -301,6 +308,26 @@ tr:last-child td{border-bottom:none}
       <div class="card">
         <div class="card-title">Hackathon Name</div>
         <input type="text" id="hk-name" placeholder="e.g. InnovateBaku 2025" oninput="debounce(pushConfig,700)()">
+      </div>
+      <div class="card">
+        <div class="card-title">Branding</div>
+        <div class="form-group">
+          <label class="form-label">Event Logo</label>
+          <div id="logo-preview" style="margin-bottom:8px;display:none">
+            <img id="logo-img" style="max-height:60px;max-width:200px;border-radius:7px;border:0.5px solid var(--border);object-fit:contain">
+            <button class="btn btn-sm btn-danger" style="margin-left:8px;vertical-align:middle" onclick="removeLogo()">Remove</button>
+          </div>
+          <div id="logo-upload-area" class="photo-upload-area" onclick="document.getElementById('logo-input').click()" style="padding:12px">
+            <div style="font-size:13px;font-weight:500">Click to upload logo</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">PNG, JPG — max 1MB · shown on submission page</div>
+          </div>
+          <input type="file" id="logo-input" accept="image/*" class="hidden" onchange="handleLogo(this)">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Organizer Website <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+          <input type="url" id="hk-website" placeholder="https://gdgbaku.com" oninput="debounce(saveBranding,700)()">
+          <p style="font-size:11px;color:var(--text3);margin-top:4px">Shown as a link on the submission page footer</p>
+        </div>
       </div>
       <div class="card">
         <div class="card-title">Team Submission Link</div>
@@ -531,7 +558,7 @@ async function showSubmitPage(slug){
     return;
   }
   try{
-    const {data,error}=await sb.from("hj_hackathons").select("id,title,username,submission_deadline").eq("username",slug).single();
+    const {data,error}=await sb.from("hj_hackathons").select("id,title,username,submission_deadline,logo,website").eq("username",slug).single();
     if(error||!data){
       show("screen-submit");
       document.getElementById("submit-hk-title").textContent="Hackathon not found";
@@ -542,6 +569,23 @@ async function showSubmitPage(slug){
     window._submitHK=data;
     document.getElementById("submit-hk-title").textContent=data.title;
 
+    // show logo if set
+    if(data.logo){
+      document.getElementById("submit-logo").src=data.logo;
+      document.getElementById("submit-logo-wrap").style.display="block";
+      document.getElementById("submit-default-icon").style.display="none";
+    }
+
+    // show website link if set
+    if(data.website){
+      const footer=document.getElementById("submit-footer");
+      const link=document.getElementById("submit-website-link");
+      const txt=document.getElementById("submit-website-text");
+      link.href=data.website;
+      txt.textContent=data.website.replace(/^https?:\/\//,"");
+      footer.style.display="block";
+    }
+
     // check deadline
     const banner=document.getElementById("deadline-banner");
     if(data.submission_deadline){
@@ -550,13 +594,11 @@ async function showSubmitPage(slug){
       const isPast=now>deadline;
       const formatted=deadline.toLocaleString();
       if(isPast){
-        // deadline passed — close the form
         banner.innerHTML=`<div class="alert alert-err" style="text-align:center;font-size:14px">⏰ Submissions closed on ${formatted}</div>`;
         banner.classList.remove("hidden");
         document.getElementById("submit-form").classList.add("hidden");
         document.getElementById("submit-hk-sub").textContent="Submission period has ended";
       } else {
-        // deadline upcoming — show countdown
         const diff=deadline-now;
         const days=Math.floor(diff/86400000);
         const hours=Math.floor((diff%86400000)/3600000);
@@ -899,8 +941,15 @@ async function pushConfig(){
     teams:currentHK.teams,
     judges:currentHK.judges,
     categories:currentHK.categories,
-    submission_deadline:currentHK.submission_deadline||null
+    submission_deadline:currentHK.submission_deadline||null,
+    logo:currentHK.logo||null,
+    website:currentHK.website||null
   }).eq("id",currentHK.id);
+}
+
+async function saveBranding(){
+  currentHK.website=document.getElementById("hk-website").value.trim()||null;
+  await sb.from("hj_hackathons").update({website:currentHK.website}).eq("id",currentHK.id);
 }
 
 async function pushArr(){
@@ -911,7 +960,60 @@ async function pushArr(){
   }).eq("id",currentHK.id);
 }
 
-async function saveDeadline(){
+function handleLogo(input){
+  const file=input.files[0];
+  if(!file) return;
+  if(file.size>1024*1024){ alert("Logo must be under 1MB."); input.value=""; return; }
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    currentHK.logo=e.target.result;
+    await sb.from("hj_hackathons").update({logo:currentHK.logo}).eq("id",currentHK.id);
+    renderLogoPreview();
+  };
+  reader.readAsDataURL(file);
+  input.value="";
+}
+
+async function removeLogo(){
+  currentHK.logo=null;
+  await sb.from("hj_hackathons").update({logo:null}).eq("id",currentHK.id);
+  renderLogoPreview();
+}
+
+function renderLogoPreview(){
+  const preview=document.getElementById("logo-preview");
+  const uploadArea=document.getElementById("logo-upload-area");
+  const img=document.getElementById("logo-img");
+  if(currentHK.logo){
+    img.src=currentHK.logo;
+    preview.style.display="flex";
+    preview.style.alignItems="center";
+    uploadArea.style.display="none";
+  } else {
+    preview.style.display="none";
+    uploadArea.style.display="";
+  }
+}
+
+function renderSetup(){
+  document.getElementById("hk-name").value=currentHK.title||"";
+  document.getElementById("hk-website").value=currentHK.website||"";
+  renderTags("teams-tags",currentHK.teams||[],"teams");
+  renderTags("judges-tags",currentHK.judges||[],"judges");
+  renderCats();
+  setShareUrl();
+  renderLogoPreview();
+  // render deadline
+  const dl=document.getElementById("hk-deadline");
+  if(dl&&currentHK.submission_deadline){
+    const d=new Date(currentHK.submission_deadline);
+    const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    dl.value=local;
+  } else if(dl){
+    dl.value="";
+  }
+  renderDeadlineStatus();
+}
   const val=document.getElementById("hk-deadline").value;
   currentHK.submission_deadline=val?new Date(val).toISOString():null;
   await sb.from("hj_hackathons").update({submission_deadline:currentHK.submission_deadline}).eq("id",currentHK.id);
